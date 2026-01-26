@@ -11,10 +11,13 @@ if (!data || !labels) return;
 const ctx = canvasRef.current.getContext('2d');
 new Chart(ctx, {
 type: 'line',
-data: { labels, datasets: [{ label: title, data }] },
-options: { responsive: true }
+data: {
+labels,
+datasets: [{ label: title, data, borderColor: '#4CAF50', backgroundColor: 'rgba(76,175,80,0.2)' }]
+},
+options: { responsive: true, plugins: { legend: { display: true, position: 'top' } } }
 });
-}, [data, labels]);
+}, [data, labels, title]);
 
 
 return <canvas ref={canvasRef}></canvas>;
