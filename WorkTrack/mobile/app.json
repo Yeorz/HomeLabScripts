@@ -1,0 +1,8 @@
+{
+  "expo": {
+    "name": "WorkoutTracker",
+    "ios": {
+      "supportsTablet": true
+    }
+  }
+}
