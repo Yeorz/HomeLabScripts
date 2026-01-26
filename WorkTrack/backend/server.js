@@ -1,4 +1,5 @@
 import express from "express";
+import sqlite3 from "sqlite3";
 import cors from "cors";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -41,9 +42,8 @@ db.run("INSERT INTO users(email,password) VALUES (?,?)",
 
 
 app.post("/login", (req, res) => {
-db.get("SELECT * FROM users WHERE email=?", [req.body.email], async (uErr, user) => {
-if (!user || !(await bcrypt.compare(req.body.password, user.password)))
-return res.sendStatus(403);
+db.get("SELECT * FROM users WHERE email=?", [req.body.email], async (_, user) => {
+if (!user || !(await bcrypt.compare(req.body.password, user.password))) return res.sendStatus(403);
 res.json({ token: jwt.sign({ id: user.id }, "secret") });
 });
 });
@@ -59,13 +59,10 @@ db.run(
 });
 
 
-app.get("/analytics", auth, (req, res) => {
+// ADVANCED ANALYTICS
+app.get("/analytics/summary", auth, (req, res) => {
 db.all(
-"SELECT date(created_at) day, sum(calories) calories FROM workouts WHERE user_id=? GROUP BY day",
-[req.user.id],
-(_, rows) => res.json(rows)
-);
-});
-
-
+`SELECT
+type,
 app.listen(3001, () => console.log("Backend running"));
+---(3001, () => console.log("Backend running"));
