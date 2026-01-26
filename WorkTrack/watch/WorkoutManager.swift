@@ -3,14 +3,24 @@ import CoreMotion
 
 
 class WorkoutManager {
-let store = HKHealthStore()
-let motion = CMMotionManager()
+private let motion = CMMotionManager()
+private let classifier = MotionClassifier()
+private var buffer: [(CMAcceleration, CMRotationRate)] = []
 
 
 func start() {
-let config = HKWorkoutConfiguration()
-config.activityType = .other
-let session = try! HKWorkoutSession(healthStore: store, configuration: config)
-session.startActivity(with: .now)
+motion.deviceMotionUpdateInterval = 0.1
+motion.startDeviceMotionUpdates(to: .main) { data, _ in
+guard let d = data else { return }
+self.buffer.append((d.userAcceleration, d.rotationRate))
+
+
+if self.buffer.count >= 50 {
+let features = MLFeatureExtractor.extract(from: self.buffer)
+let activity = self.classifier.classify(features: features)
+print("Detected activity:", activity)
+self.buffer.removeAll()
+}
+}
 }
 }
