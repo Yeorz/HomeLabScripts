@@ -1,66 +1,197 @@
-import React, { useEffect, useState } from "react";
-import Charts from "./charts";
-
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from './contexts/AuthContext';
+import { secureApiCall, sanitizeInput } from './utils/security';
+import Charts from './components/Charts';
 
 export default function Dashboard() {
-const [summary, setSummary] = useState([]);
-const [trends, setTrends] = useState([]);
+  const navigate = useNavigate();
+  const { user, logout, isAuthenticated } = useAuth();
+  const [summary, setSummary] = useState([]);
+  const [trends, setTrends] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/auth/login');
+      return;
+    }
 
-useEffect(() => {
-const token = localStorage.token;
-fetch('http://localhost:3001/analytics/summary', { headers: { Authorization: `Bearer ${token}` } })
-.then(r => r.json()).then(setSummary);
-fetch('http://localhost:3001/analytics/trends', { headers: { Authorization: `Bearer ${token}` } })
-.then(r => r.json()).then(setTrends);
-}, []);
+    const fetchData = async () => {
+      try {
+        const summaryData = await secureApiCall('http://localhost:3001/analytics/summary', {
+          method: 'GET',
+        });
+        const trendsData = await secureApiCall('http://localhost:3001/analytics/trends', {
+          method: 'GET',
+        });
 
+        setSummary(summaryData);
+        setTrends(trendsData);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-const labels = trends.map(t => t.day);
-const calories = trends.map(t => t.calories);
-const minutes = trends.map(t => t.minutes);
+    fetchData();
+  }, [isAuthenticated, navigate]);
 
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth/login');
+  };
 
-const publicLink = `${window.location.origin}/public/${localStorage.userId}`;
+  if (loading) {
+    return <div style={styles.container}>Loading...</div>;
+  }
 
+  const labels = trends.map(t => sanitizeInput(String(t.day)));
+  const calories = trends.map(t => Math.max(0, parseInt(t.calories) || 0));
+  const minutes = trends.map(t => Math.max(0, parseInt(t.minutes) || 0));
 
-return (
-<div style={{ padding: 30, fontFamily: 'Arial, sans-serif', backgroundColor: '#f5f6fa', minHeight: '100vh' }}>
-<h1 style={{ marginBottom: 20 }}>My Workout Dashboard</h1>
+  const publicLink = `${window.location.origin}/public/${user?.id || ''}`;
 
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <h1>My Workout Dashboard</h1>
+        <div>
+          <span style={styles.userName}>{user?.email}</span>
+          <button onClick={handleLogout} style={styles.logoutBtn}>Logout</button>
+        </div>
+      </header>
 
-{/* Public Link Card */}
-<div style={{ marginBottom: 30, padding: 20, borderRadius: 12, backgroundColor: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
-<h2>Public Link</h2>
-<input type="text" readOnly value={publicLink} style={{ width: '70%', marginRight: 10, padding: 8, borderRadius: 6, border: '1px solid #ccc' }} />
-<button onClick={() => navigator.clipboard.writeText(publicLink)} style={{ padding: '8px 12px', borderRadius: 6, backgroundColor: '#4CAF50', color: '#fff', border: 'none', cursor: 'pointer' }}>Copy</button>
-</div>
+      {error && <div style={styles.error}>Error: {error}</div>}
 
+      {/* Public Link Card */}
+      <div style={styles.card}>
+        <h2>Share Your Progress</h2>
+        <p>Generate a public link to share your workout stats:</p>
+        <div style={styles.publicLinkContainer}>
+          <input 
+            type="text" 
+            readOnly 
+            value={publicLink} 
+            style={styles.publicLinkInput}
+            aria-label="Public profile link"
+          />
+          <button 
+            onClick={() => navigator.clipboard.writeText(publicLink)}
+            style={styles.copyBtn}
+          >
+            Copy
+          </button>
+        </div>
+      </div>
 
-{/* Trends Charts */}
-<div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 30, marginBottom: 30 }}>
-<div style={{ padding: 20, borderRadius: 12, backgroundColor: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
-<h3>Calories Trend</h3>
-<Charts data={calories} labels={labels} title="Calories" />
-</div>
-<div style={{ padding: 20, borderRadius: 12, backgroundColor: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
-<h3>Minutes Trend</h3>
-<Charts data={minutes} labels={labels} title="Minutes" />
-</div>
-</div>
+      {/* Trends Charts */}
+      <div style={styles.chartsGrid}>
+        <div style={styles.card}>
+          <h3>Calories Trend</h3>
+          <Charts data={calories} labels={labels} title="Calories" />
+        </div>
+        <div style={styles.card}>
+          <h3>Minutes Trend</h3>
+          <Charts data={minutes} labels={labels} title="Minutes" />
+        </div>
+      </div>
 
-
-{/* Summary Cards */}
-<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 20 }}>
-{summary.map(s => (
-<div key={s.type} style={{ padding: 20, borderRadius: 12, backgroundColor: '#fff', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
-<h4>{s.type}</h4>
-<p>Sessions: {s.sessions}</p>
-<p>Total Minutes: {s.total_minutes}</p>
-<p>Calories: {s.calories}</p>
-</div>
-))}
-</div>
-</div>
-);
+      {/* Summary Cards */}
+      <div style={styles.summaryGrid}>
+        {summary.map(s => (
+          <div key={sanitizeInput(String(s.type))} style={styles.summaryCard}>
+            <h4>{sanitizeInput(String(s.type))}</h4>
+            <p>Sessions: {Math.max(0, parseInt(s.sessions) || 0)}</p>
+            <p>Total Minutes: {Math.max(0, parseInt(s.total_minutes) || 0)}</p>
+            <p>Calories: {Math.max(0, parseInt(s.calories) || 0)}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
+
+const styles = {
+  container: {
+    minHeight: '100vh',
+    backgroundColor: '#f5f6fa',
+    padding: '20px',
+    fontFamily: 'Arial, sans-serif',
+  },
+  header: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '30px',
+    backgroundColor: '#fff',
+    padding: '20px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+  },
+  userName: {
+    marginRight: '15px',
+    color: '#666',
+  },
+  logoutBtn: {
+    padding: '8px 16px',
+    backgroundColor: '#f44336',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+  },
+  card: {
+    backgroundColor: '#fff',
+    padding: '20px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+    marginBottom: '30px',
+  },
+  publicLinkContainer: {
+    display: 'flex',
+    gap: '10px',
+    marginTop: '10px',
+  },
+  publicLinkInput: {
+    flex: 1,
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '6px',
+    fontSize: '14px',
+  },
+  copyBtn: {
+    padding: '10px 20px',
+    backgroundColor: '#4CAF50',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+  },
+  chartsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '20px',
+    marginBottom: '30px',
+  },
+  summaryGrid: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+    gap: '20px',
+  },
+  summaryCard: {
+    backgroundColor: '#fff',
+    padding: '20px',
+    borderRadius: '12px',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
+  },
+  error: {
+    backgroundColor: '#fee',
+    color: '#c00',
+    padding: '15px',
+    borderRadius: '6px',
+    marginBottom: '20px',
+  },
+};
