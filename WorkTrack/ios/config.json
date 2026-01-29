@@ -1,0 +1,11 @@
+{
+  "name": "WorkoutTracker",
+  "displayName": "Workout Tracker",
+  "organizationIdentifier": "com.example.workouttracker",
+  "development": {
+    "apiBaseURL": "http://localhost:3001"
+  },
+  "production": {
+    "apiBaseURL": "https://api.workouttracker.com"
+  }
+}
