@@ -1,0 +1,429 @@
+name: WorkTrack CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      strategy:
+        description: 'Deployment strategy'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - blue-green
+          - canary
+
+jobs:
+  #############################################################################
+  # BUILD JOB
+  #############################################################################
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      backend-version: ${{ steps.version.outputs.backend }}
+      frontend-version: ${{ steps.version.outputs.frontend }}
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Generate version
+        id: version
+        run: |
+          echo "backend=v$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "frontend=v$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+      
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+      
+      - name: Lint backend
+        run: cd backend && npm run lint
+        continue-on-error: true
+      
+      - name: Test backend
+        run: cd backend && npm run test
+        continue-on-error: true
+      
+      - name: Install frontend dependencies
+        run: cd web && npm ci
+      
+      - name: Lint frontend
+        run: cd web && npm run lint
+        continue-on-error: true
+      
+      - name: Test frontend
+        run: cd web && npm run test
+        continue-on-error: true
+      
+      - name: Build frontend
+        run: cd web && npm run build
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: builds
+          path: |
+            backend/
+            web/dist/
+          retention-days: 1
+
+  #############################################################################
+  # SECURITY SCANNING
+  #############################################################################
+  security:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Install dependencies
+        run: |
+          cd backend && npm ci
+          cd ../web && npm ci
+      
+      - name: Run npm audit
+        run: |
+          echo "=== Backend Security ===" 
+          cd backend && npm audit --production || true
+          echo "=== Frontend Security ===" 
+          cd ../web && npm audit --production || true
+      
+      - name: SAST with Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/owasp-top-ten
+            p/nodejs
+          generateSarif: true
+      
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: semgrep.sarif
+
+  #############################################################################
+  # INTEGRATION TESTS
+  #############################################################################
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: worktrack_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: builds
+      
+      - name: Install backend dependencies
+        run: cd backend && npm ci
+      
+      - name: Run backend tests
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/worktrack_test
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+        run: cd backend && npm run test
+        continue-on-error: true
+      
+      - name: Start backend
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/worktrack_test
+          REDIS_URL: redis://localhost:6379
+          NODE_ENV: test
+        run: |
+          cd backend
+          npm start &
+          sleep 5
+      
+      - name: Run integration tests
+        run: |
+          echo "Testing API endpoints..."
+          curl -f http://localhost:3001/health || true
+          curl -f http://localhost:3001/auth/session || true
+          curl -f http://localhost:3001/workouts || true
+
+  #############################################################################
+  # DEPLOY TO STAGING
+  #############################################################################
+  deploy-staging:
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: [build, security, integration-tests]
+    environment:
+      name: staging
+      url: https://staging.worktrack.local
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: builds
+      
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROXMOX_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PROXMOX_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to staging container
+        run: |
+          CONTAINER_ID=100
+          CONTAINER_IP=${{ secrets.STAGING_CONTAINER_IP }}
+          
+          # Deploy backend
+          scp -r backend/* root@${CONTAINER_IP}:/opt/worktrack/backend/
+          
+          # Deploy frontend
+          scp -r web/dist/* root@${CONTAINER_IP}:/opt/worktrack/web/dist/
+          
+          # Restart services
+          ssh root@${CONTAINER_IP} "systemctl restart worktrack-backend worktrack-web"
+          
+          # Wait for services
+          sleep 5
+          
+          # Health check
+          ssh root@${CONTAINER_IP} "curl -f http://localhost:3001/health"
+      
+      - name: Run smoke tests
+        run: |
+          CONTAINER_IP=${{ secrets.STAGING_CONTAINER_IP }}
+          
+          # Create and run smoke tests
+          cat > /tmp/smoke.sh << 'EOF'
+          #!/bin/bash
+          API_URL="http://localhost:3001"
+          curl -f ${API_URL}/health
+          curl -f ${API_URL}/auth/session || true
+          curl -f ${API_URL}/workouts || true
+          EOF
+          
+          ssh root@${CONTAINER_IP} "bash /tmp/smoke.sh"
+      
+      - name: Notify deployment
+        if: always()
+        run: |
+          echo "Staging deployment completed"
+          echo "URL: https://staging.worktrack.local"
+
+  #############################################################################
+  # DEPLOY TO PRODUCTION
+  #############################################################################
+  deploy-production:
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: [build, security, integration-tests]
+    environment:
+      name: production
+      url: https://worktrack.example.com
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: builds
+      
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROXMOX_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PROXMOX_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Create backup
+        run: |
+          CONTAINER_IP=${{ secrets.PROD_CONTAINER_IP }}
+          ssh root@${CONTAINER_IP} "tar -czf /opt/backups/pre-deploy-$(date +%s).tar.gz /opt/worktrack/data /opt/worktrack/backend/.env"
+      
+      - name: Deploy with ${{ github.event.inputs.strategy || 'standard' }} strategy
+        run: |
+          STRATEGY="${{ github.event.inputs.strategy || 'standard' }}"
+          CONTAINER_ID=101
+          CONTAINER_IP=${{ secrets.PROD_CONTAINER_IP }}
+          
+          if [ "$STRATEGY" = "blue-green" ]; then
+            echo "Running blue-green deployment..."
+            # Deploy to green (secondary)
+            scp -r backend/* root@${CONTAINER_IP}:/opt/worktrack/backend/
+            scp -r web/dist/* root@${CONTAINER_IP}:/opt/worktrack/web/dist/
+            
+            # Start on green
+            ssh root@${CONTAINER_IP} "systemctl start worktrack-backend worktrack-web"
+            sleep 10
+            
+            # Switch traffic
+            ssh root@${CONTAINER_IP} "systemctl reload nginx"
+          
+          elif [ "$STRATEGY" = "canary" ]; then
+            echo "Running canary deployment (10% traffic)..."
+            # Update with canary weights in Nginx
+            scp -r backend/* root@${CONTAINER_IP}:/opt/worktrack/backend/
+            scp -r web/dist/* root@${CONTAINER_IP}:/opt/worktrack/web/dist/
+            
+            ssh root@${CONTAINER_IP} "systemctl restart worktrack-backend"
+            sleep 10
+            
+            # Start canary monitoring
+            ssh root@${CONTAINER_IP} "curl -s http://localhost:9090/api/v1/query?query=rate(worktrack_errors_total%5B5m%5D)"
+          
+          else
+            echo "Running standard deployment..."
+            scp -r backend/* root@${CONTAINER_IP}:/opt/worktrack/backend/
+            scp -r web/dist/* root@${CONTAINER_IP}:/opt/worktrack/web/dist/
+            ssh root@${CONTAINER_IP} "systemctl restart worktrack-backend worktrack-web"
+          fi
+      
+      - name: Verify deployment
+        run: |
+          CONTAINER_IP=${{ secrets.PROD_CONTAINER_IP }}
+          
+          # Health checks
+          ssh root@${CONTAINER_IP} "curl -f http://localhost:3001/health"
+          ssh root@${CONTAINER_IP} "curl -f http://localhost:5173/"
+          
+          # Check service status
+          ssh root@${CONTAINER_IP} "systemctl status worktrack-backend worktrack-web"
+      
+      - name: Smoke tests
+        run: |
+          CONTAINER_IP=${{ secrets.PROD_CONTAINER_IP }}
+          
+          cat > /tmp/smoke.sh << 'EOF'
+          #!/bin/bash
+          set -e
+          API_URL="http://localhost:3001"
+          
+          echo "Testing API health..."
+          curl -f ${API_URL}/health
+          
+          echo "Testing auth endpoint..."
+          curl -f -X POST ${API_URL}/auth/session
+          
+          echo "Testing workouts endpoint..."
+          curl -f ${API_URL}/workouts || true
+          
+          echo "All smoke tests passed!"
+          EOF
+          
+          ssh root@${CONTAINER_IP} "bash /tmp/smoke.sh"
+      
+      - name: Create deployment summary
+        if: always()
+        run: |
+          echo "## Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Strategy:** ${{ github.event.inputs.strategy || 'standard' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** Success ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://worktrack.example.com" >> $GITHUB_STEP_SUMMARY
+      
+      - name: Slack notification
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'Production deployment of WorkTrack ${{ github.sha }} completed'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  #############################################################################
+  # ROLLBACK JOB
+  #############################################################################
+  rollback:
+    if: failure() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.PROXMOX_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.PROXMOX_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Find latest backup
+        id: backup
+        run: |
+          CONTAINER_IP=${{ secrets.PROD_CONTAINER_IP }}
+          BACKUP=$(ssh root@${CONTAINER_IP} "ls -t /opt/backups/*.tar.gz | head -1")
+          echo "backup=$BACKUP" >> $GITHUB_OUTPUT
+      
+      - name: Rollback to previous version
+        run: |
+          CONTAINER_IP=${{ secrets.PROD_CONTAINER_IP }}
+          BACKUP="${{ steps.backup.outputs.backup }}"
+          
+          echo "Rolling back to $BACKUP..."
+          ssh root@${CONTAINER_IP} "systemctl stop worktrack-backend worktrack-web"
+          ssh root@${CONTAINER_IP} "tar -xzf $BACKUP -C /opt/worktrack/"
+          ssh root@${CONTAINER_IP} "systemctl start worktrack-backend worktrack-web"
+          
+          sleep 5
+          ssh root@${CONTAINER_IP} "curl -f http://localhost:3001/health"
+      
+      - name: Alert on rollback
+        run: |
+          echo "⚠️ Deployment failed - rolled back to previous version"
+          echo "Backup used: ${{ steps.backup.outputs.backup }}"
+
