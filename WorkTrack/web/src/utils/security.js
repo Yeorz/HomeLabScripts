@@ -37,27 +37,42 @@ export const getCSRFToken = () => {
 
 // Secure API calls with CSRF token and Content-Type validation
 export const secureApiCall = async (url, options = {}) => {
-  const csrfToken = getCSRFToken();
-  
-  const headers = {
-    'Content-Type': 'application/json',
-    'X-CSRF-Token': csrfToken,
-    ...options.headers,
-  };
+  try {
+    // Fetch CSRF token from backend
+    const csrfResponse = await fetch('http://localhost:3001/auth/csrf-token', {
+      method: 'GET',
+      credentials: 'include',
+    });
+    
+    if (!csrfResponse.ok) {
+      throw new Error('Failed to get CSRF token');
+    }
+    
+    const { csrfToken } = await csrfResponse.json();
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-CSRF-Token': csrfToken,
+      ...options.headers,
+    };
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include', // Include cookies for session management
-  });
+    const response = await fetch(url, {
+      ...options,
+      headers,
+      credentials: 'include', // Include cookies for session management
+    });
 
-  if (!response.ok) {
-    const error = new Error(`API Error: ${response.status}`);
-    error.status = response.status;
+    if (!response.ok) {
+      const error = new Error(`API Error: ${response.status}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    return response.json();
+  } catch (error) {
+    logSecurityEvent('API call failed', { url, error: error.message });
     throw error;
   }
-
-  return response.json();
 };
 
 // Input validation utilities

@@ -9,18 +9,52 @@ import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import validator from 'validator';
 import crypto from 'crypto';
+import csurf from 'csurf';
+
+// Validate required environment variables on startup
+const requiredEnvVars = ['JWT_SECRET', 'SESSION_SECRET'];
+requiredEnvVars.forEach(envVar => {
+  if (!process.env[envVar]) {
+    console.error(`\nFATAL ERROR: ${envVar} environment variable not set`);
+    console.error('Set required variables:');
+    console.error(`  export ${envVar}=$(openssl rand -base64 32)`);
+    process.exit(1);
+  }
+});
 
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173'],
+      frameDest: ["'none'"],
+    },
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true },
+  frameguard: { action: 'deny' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
 app.use(cookieParser());
 
-// CORS configuration
+// CORS with proper origin validation
+const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:5173').split(',');
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.some(allowed => origin.includes(allowed.trim()))) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   allowedHeaders: ['Content-Type', 'X-CSRF-Token'],
+  maxAge: 3600,
 }));
 
 // Rate limiting
@@ -39,18 +73,28 @@ app.use(limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware
+// Session middleware with hardened settings
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'super-secret-session-key',
+  secret: process.env.SESSION_SECRET,  // No fallback - env var required
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false,  // Don't create empty sessions
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' ? true : false,
+    sameSite: 'strict',
+    maxAge: 1 * 60 * 60 * 1000,  // Reduced to 1 hour
+  },
+  name: 'sessionId',  // Don't leak framework name
+}));
+
+// CSRF protection middleware
+const csrfProtection = csurf({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 24 * 60 * 60 * 1000,
   },
-}));
+});
 
 const db = new sqlite3.Database('db.sqlite');
 
@@ -85,14 +129,14 @@ CREATE TABLE IF NOT EXISTS audit_log (
 const generateToken = (userId) => {
   return jwt.sign(
     { id: userId, iat: Math.floor(Date.now() / 1000) },
-    process.env.JWT_SECRET || 'super-secret-jwt-key',
+    process.env.JWT_SECRET,  // No fallback
     { expiresIn: '24h' }
   );
 };
 
 const verifyToken = (token) => {
   try {
-    return jwt.verify(token, process.env.JWT_SECRET || 'super-secret-jwt-key');
+    return jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
     return null;
   }
@@ -124,17 +168,11 @@ const auth = (req, res, next) => {
   next();
 };
 
-app.post('/auth/csrf-token', (req, res) => {
-  const token = crypto.randomBytes(32).toString('hex');
-  res.cookie('csrf_token', token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict',
-  });
-  res.json({ token });
+app.get('/auth/csrf-token', csrfProtection, (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
 });
 
-app.post('/auth/register', authLimiter, async (req, res) => {
+app.post('/auth/register', csrfProtection, authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -174,7 +212,7 @@ app.post('/auth/register', authLimiter, async (req, res) => {
               sameSite: 'strict',
             });
 
-            res.json({ user: { id: this.lastID, email }, token });
+            res.json({ user: { id: this.lastID, email } });
           }
         );
       } catch (err) {
@@ -186,7 +224,7 @@ app.post('/auth/register', authLimiter, async (req, res) => {
   }
 });
 
-app.post('/auth/login', authLimiter, async (req, res) => {
+app.post('/auth/login', csrfProtection, authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -209,7 +247,7 @@ app.post('/auth/login', authLimiter, async (req, res) => {
         sameSite: 'strict',
       });
 
-      res.json({ user: { id: user.id, email: user.email }, token });
+      res.json({ user: { id: user.id, email: user.email } });
     });
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
@@ -236,13 +274,13 @@ app.get('/auth/session', (req, res) => {
   });
 });
 
-app.post('/auth/logout', (req, res) => {
+app.post('/auth/logout', csrfProtection, (req, res) => {
   res.clearCookie('token');
-  res.clearCookie('csrf_token');
+  res.clearCookie('sessionId');
   res.json({ ok: true });
 });
 
-app.post('/workouts', auth, (req, res) => {
+app.post('/workouts', csrfProtection, auth, (req, res) => {
   try {
     const { type, duration, calories } = req.body;
 
@@ -255,11 +293,11 @@ app.post('/workouts', auth, (req, res) => {
     }
 
     if (typeof duration !== 'number' || duration <= 0 || duration > 14400) {
-      return res.status(400).json({ error: 'Invalid duration' });
+      return res.status(400).json({ error: 'Invalid duration (1-14400 seconds)' });
     }
 
-    if (typeof calories !== 'number' || calories < 0 || calories > 10000) {
-      return res.status(400).json({ error: 'Invalid calories' });
+    if (typeof calories !== 'number' || calories < 0 || calories > 5000) {
+      return res.status(400).json({ error: 'Invalid calories (0-5000)' });
     }
 
     db.run(
@@ -326,9 +364,9 @@ app.get('/public/:userId', (req, res) => {
     return res.status(400).json({ error: 'Invalid user ID' });
   }
 
-  db.get('SELECT email FROM users WHERE id = ?', [userId], (err, user) => {
+  db.get('SELECT id FROM users WHERE id = ?', [userId], (err, user) => {
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'Not found' });
     }
 
     db.all(
@@ -346,7 +384,6 @@ app.get('/public/:userId', (req, res) => {
           return res.status(500).json({ error: 'Failed to fetch public data' });
         }
         res.json({
-          userName: user.email.split('@')[0],
           workouts: rows || [],
         });
       }
