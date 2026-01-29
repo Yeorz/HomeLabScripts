@@ -1,0 +1,125 @@
+{
+  "activityEntities" : [
+    "experimentCreated",
+    [
+      {
+        "createdDate" : "2026-01-26T10:58:11Z",
+        "event" : "experimentCreated",
+        "id" : "1703AC30-C772-401C-B6BD-C09254D4A9C3",
+        "subtitle" : "ExerciseClassifierV2.mlmodel 1",
+        "title" : "Model Source Created"
+      }
+    ]
+  ],
+  "contentDataResult" : {
+    "createdDate" : "2026-01-26T10:58:11Z"
+  },
+  "createdDate" : "2026-01-26T10:58:11Z",
+  "evaluationContainerEntity" : {
+    "createdDate" : "2026-01-26T10:58:48Z",
+    "evaluationEntities" : [
+
+    ],
+    "id" : "9f37dab5-000e-4699-85d4-6bd963e1e3f7",
+    "modifiedDate" : "2026-01-26T10:58:48Z",
+    "previewType" : "activityClassifier",
+    "testingEvaluationEntity" : {
+      "analysedDataType" : "none",
+      "createdDate" : "2026-01-26T10:58:11Z",
+      "dataResult" : {
+        "createdDate" : "2026-01-26T10:58:11Z"
+      },
+      "id" : "a062d172-78a1-4c2e-bf1c-66deba6e04d3"
+    },
+    "trainingEvaluationEntity" : {
+      "analysedDataType" : "none",
+      "createdDate" : "2026-01-26T10:58:11Z",
+      "dataResult" : {
+        "createdDate" : "2026-01-26T10:58:11Z"
+      },
+      "id" : "2047a5f4-eb6a-49ba-90c2-ab93796e85fa"
+    },
+    "validationEvaluationEntity" : {
+      "analysedDataType" : "auto",
+      "createdDate" : "2026-01-26T10:58:11Z",
+      "dataResult" : {
+        "createdDate" : "2026-01-26T10:58:11Z"
+      },
+      "id" : "24180edc-279c-47a6-b665-6400a46daffb"
+    }
+  },
+  "evaluationEntity" : {
+    "analysedDataType" : "none",
+    "dataResult" : {
+
+    },
+    "id" : "c6ff5bc2-6bfe-4b4f-81fe-d6a8e9b3cb69"
+  },
+  "evaluationState" : "uninitialized",
+  "id" : "3B741A75-8497-4001-BB8E-32E2CE7F88BA",
+  "modelEntity" : {
+    "createdDate" : "2026-01-26T10:58:11Z",
+    "experimentID" : "3B741A75-8497-4001-BB8E-32E2CE7F88BA",
+    "id" : "A5DC70DE-B26E-4607-86B6-0A0DBD948E29",
+    "modifiedDate" : "2026-01-26T10:58:11Z",
+    "title" : "",
+    "version" : "1.0"
+  },
+  "modifiedDate" : "2026-01-26T10:58:48Z",
+  "preferredFilename" : "ExerciseClassifierV2.mlmodel 1",
+  "settingEntity" : {
+    "algorithmType" : "maxEnt",
+    "augmentations" : [
+
+    ],
+    "featureNames" : [
+
+    ],
+    "handActionClassifierAugmentations" : [
+
+    ],
+    "handPoseClassifierAugmentations" : [
+
+    ],
+    "harVideoAugmentations" : 0,
+    "seedType" : "default",
+    "styleTransferAlgorithmType" : "image",
+    "taskType" : "activityClassifier",
+    "transferLearningEmbeddingType" : "dynamic"
+  },
+  "snapshotRole" : {
+    "withoutSnapshots" : 0
+  },
+  "state" : "uninitialized",
+  "title" : "ExerciseClassifierV2.mlmodel 1",
+  "trainingEntity" : {
+    "analysedDataType" : "choose",
+    "checkpointMetrics" : {
+
+    },
+    "dataResult" : {
+      "createdDate" : "2026-01-26T10:58:11Z"
+    },
+    "featureExtractionCheckpointMayBeAvailable" : false,
+    "progress" : [
+
+    ],
+    "snapshottableCheckpoints" : {
+
+    }
+  },
+  "validationEntity" : {
+    "analysedDataType" : "auto",
+    "dataResult" : {
+      "createdDate" : "2026-01-26T10:58:11Z"
+    },
+    "splitOptions" : {
+      "strategy" : {
+        "automatic" : {
+
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

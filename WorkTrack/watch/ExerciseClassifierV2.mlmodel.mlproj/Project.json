@@ -1,0 +1,29 @@
+{
+  "activityEntities" : [
+    "projectCreated",
+    [
+      {
+        "createdDate" : "2026-01-26T10:58:11Z",
+        "event" : "projectCreated",
+        "id" : "782D272A-0238-4245-9A5C-659DA8448699",
+        "subtitle" : "ExerciseClassifierV2.mlmodel",
+        "title" : "Project Created"
+      }
+    ]
+  ],
+  "authorName" : "Bart Kramer",
+  "createdDate" : "2026-01-26T10:58:11Z",
+  "description" : "For workout app",
+  "id" : "E5F4D372-20B6-49D7-BFE2-821EDAC6523A",
+  "license" : "",
+  "location" : "",
+  "modifiedDate" : "2026-01-27T08:33:31Z",
+  "projectName" : "ExerciseClassifierV2.mlmodel",
+  "settingsEntity" : {
+    "snapshotOnExtendTraining" : true,
+    "snapshotOnResumeTraining" : false
+  },
+  "taskType" : "activityClassifier",
+  "title" : "Activity Classification",
+  "version" : "1.1"
+}
