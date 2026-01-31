@@ -18,12 +18,11 @@ echo
 echo "📌 Backend dependencies:"
 cd /root/worktrack/backend
 
-# Try npm ci first
-if npm ci --no-audit --no-fund 2>&1 | grep -q "added"; then
-  echo "   ✓ npm ci succeeded"
+# Try npm install
+if npm install --no-audit --no-fund 2>&1 | grep -q "added"; then
+  echo "   ✓ npm install succeeded"
 else
-  echo "   npm ci had issues, trying npm install..."
-  npm install --no-audit --no-fund 2>&1 | grep -E "(added|packages|error)" | head -3 || true
+  echo "   ⚠️  npm install completed (check for warnings above)"
 fi
 
 npm ls --depth=0 2>&1 | head -10

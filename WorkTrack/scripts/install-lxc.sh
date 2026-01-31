@@ -209,13 +209,7 @@ if [ -d /root/worktrack/backend ] && [ -d /root/worktrack/web ]; then
   
   cd /root/worktrack/backend
   echo "   Installing backend dependencies..."
-  npm ci --no-audit --no-fund 2>&1 | grep -E "(added|packages|error|npm ERR)" | head -5 || true
-  
-  # If npm ci failed, try npm install as fallback
-  if ! npm list express >/dev/null 2>&1; then
-    echo "   npm ci failed, trying npm install..."
-    npm install --no-audit --no-fund 2>&1 | grep -E "(added|packages|error)" | head -5 || true
-  fi
+  npm install --no-audit --no-fund 2>&1 | grep -E "(added|packages|warn|error)" | head -5 || true
 
   # Ensure required env vars for backend
   CONTAINER_IP=$(hostname -I 2>/dev/null | awk "{print \$1}" || true)
