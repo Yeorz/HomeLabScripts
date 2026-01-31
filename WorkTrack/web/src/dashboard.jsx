@@ -20,10 +20,10 @@ export default function Dashboard() {
 
     const fetchData = async () => {
       try {
-        const summaryData = await secureApiCall('http://localhost:3001/analytics/summary', {
+        const summaryData = await secureApiCall('/api/analytics/summary', {
           method: 'GET',
         });
-        const trendsData = await secureApiCall('http://localhost:3001/analytics/trends', {
+        const trendsData = await secureApiCall('/api/analytics/trends', {
           method: 'GET',
         });
 

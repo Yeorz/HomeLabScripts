@@ -38,8 +38,8 @@ export const getCSRFToken = () => {
 // Secure API calls with CSRF token and Content-Type validation
 export const secureApiCall = async (url, options = {}) => {
   try {
-    // Fetch CSRF token from backend
-    const csrfResponse = await fetch('http://localhost:3001/auth/csrf-token', {
+      // Fetch CSRF token from backend (use relative path so nginx proxy handles host)
+      const csrfResponse = await fetch('/api/auth/csrf-token', {
       method: 'GET',
       credentials: 'include',
     });

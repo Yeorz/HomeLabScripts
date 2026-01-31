@@ -215,7 +215,7 @@ if [ -d /root/worktrack/backend ] && [ -d /root/worktrack/web ]; then
   if [ ! -f /root/worktrack/backend/.env ]; then
     echo "JWT_SECRET=$(openssl rand -base64 32)" >/root/worktrack/backend/.env || true
     echo "SESSION_SECRET=$(openssl rand -base64 32)" >>/root/worktrack/backend/.env || true
-    echo "FRONTEND_URL=http://$CONTAINER_IP:5173" >>/root/worktrack/backend/.env || true
+    echo "FRONTEND_URL=http://$CONTAINER_IP" >>/root/worktrack/backend/.env || true
     echo "NODE_ENV=production" >>/root/worktrack/backend/.env || true
   fi
 
@@ -224,7 +224,6 @@ if [ -d /root/worktrack/backend ] && [ -d /root/worktrack/web ]; then
   
   cd /root/worktrack/web && npm ci --no-audit --no-fund 2>&1 | tail -1 || true
   npm run build 2>&1 | grep -E "(built|✓)" | tail -1 || true
-  pm2 start --name worktrack-web --cwd /root/worktrack/web -- npm run preview 2>/dev/null || true
   
   # Setup nginx reverse proxy
   apt-get install -y nginx 2>/dev/null || true
@@ -248,14 +247,8 @@ server {
     }
 
     location / {
-        proxy_pass http://localhost:5173/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+      root /root/worktrack/web/dist;
+      try_files $uri $uri/ /index.html;
     }
 }
 NGINX_CONF

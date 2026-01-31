@@ -8,9 +8,9 @@ const [data, setData] = useState([]);
 
 
 useEffect(() => {
-fetch(`http://localhost:3001/public/${userId}`)
-.then(r => r.json())
-.then(setData);
+	fetch(`/api/public/${userId}`)
+		.then(r => r.json())
+		.then(setData);
 }, []);
 
 
