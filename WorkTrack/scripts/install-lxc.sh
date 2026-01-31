@@ -207,7 +207,15 @@ ufw allow 5173/tcp 2>/dev/null || true
 if [ -d /root/worktrack/backend ] && [ -d /root/worktrack/web ]; then
   echo "[setup] Installing dependencies and starting services..."
   
-  cd /root/worktrack/backend && npm ci --production --no-audit --no-fund 2>&1 | tail -1 || true
+  cd /root/worktrack/backend
+  echo "   Installing backend dependencies..."
+  npm ci --no-audit --no-fund 2>&1 | grep -E "(added|packages|error|npm ERR)" | head -5 || true
+  
+  # If npm ci failed, try npm install as fallback
+  if ! npm list express >/dev/null 2>&1; then
+    echo "   npm ci failed, trying npm install..."
+    npm install --no-audit --no-fund 2>&1 | grep -E "(added|packages|error)" | head -5 || true
+  fi
 
   # Ensure required env vars for backend
   CONTAINER_IP=$(hostname -I 2>/dev/null | awk "{print \$1}" || true)
@@ -219,8 +227,11 @@ if [ -d /root/worktrack/backend ] && [ -d /root/worktrack/web ]; then
     echo "NODE_ENV=production" >>/root/worktrack/backend/.env || true
   fi
 
-  # Start backend with dotenv preloaded so process.env reads .env
-  pm2 start --name worktrack-backend --cwd /root/worktrack/backend -- node -r dotenv/config server.js 2>/dev/null || true
+  # Kill any old pm2 process first
+  pm2 delete worktrack-backend 2>/dev/null || true
+  
+  # Start backend with simple node call (dotenv loads from .env via server.js)
+  pm2 start --name worktrack-backend --cwd /root/worktrack/backend -- node server.js 2>/dev/null || true
   
   cd /root/worktrack/web && npm ci --no-audit --no-fund 2>&1 | tail -1 || true
   npm run build 2>&1 | grep -E "(built|✓)" | tail -1 || true

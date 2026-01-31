@@ -11,14 +11,26 @@ import validator from 'validator';
 import crypto from 'crypto';
 import csurf from 'csurf';
 
+// Load environment variables
+try {
+  const dotenv = await import('dotenv');
+  dotenv.config();
+} catch (err) {
+  console.warn('⚠️  dotenv not available - using environment variables directly');
+}
+
 // Validate required environment variables on startup
 const requiredEnvVars = ['JWT_SECRET', 'SESSION_SECRET'];
 requiredEnvVars.forEach(envVar => {
   if (!process.env[envVar]) {
-    console.error(`\nFATAL ERROR: ${envVar} environment variable not set`);
-    console.error('Set required variables:');
-    console.error(`  export ${envVar}=$(openssl rand -base64 32)`);
-    process.exit(1);
+    // Generate defaults if not provided (for easier local testing)
+    if (envVar === 'JWT_SECRET') {
+      process.env.JWT_SECRET = crypto.randomBytes(32).toString('base64');
+      console.warn(`⚠️  Generated temporary ${envVar} - set this for production`);
+    } else if (envVar === 'SESSION_SECRET') {
+      process.env.SESSION_SECRET = crypto.randomBytes(32).toString('base64');
+      console.warn(`⚠️  Generated temporary ${envVar} - set this for production`);
+    }
   }
 });
 
