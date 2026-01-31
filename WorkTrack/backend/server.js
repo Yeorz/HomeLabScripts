@@ -10,14 +10,10 @@ import cookieParser from 'cookie-parser';
 import validator from 'validator';
 import crypto from 'crypto';
 import csurf from 'csurf';
+import dotenv from 'dotenv';
 
-// Load environment variables
-try {
-  const dotenv = await import('dotenv');
-  dotenv.config();
-} catch (err) {
-  console.warn('⚠️  dotenv not available - using environment variables directly');
-}
+// Load environment variables from .env file
+dotenv.config();
 
 // Validate required environment variables on startup
 const requiredEnvVars = ['JWT_SECRET', 'SESSION_SECRET'];

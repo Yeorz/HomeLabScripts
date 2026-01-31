@@ -18,14 +18,16 @@ echo
 echo "📌 Backend dependencies:"
 cd /root/worktrack/backend
 
-# Try npm install
-if npm install --no-audit --no-fund 2>&1 | grep -q "added"; then
-  echo "   ✓ npm install succeeded"
-else
-  echo "   ⚠️  npm install completed (check for warnings above)"
-fi
+# Clear cache and retry
+echo "   Clearing npm cache..."
+npm cache clean --force 2>&1 | grep -E "(cleared|cache)" | head -2 || true
 
-npm ls --depth=0 2>&1 | head -10
+echo "   Running npm install..."
+npm install 2>&1 | tail -20
+echo
+
+echo "   Checking installed packages..."
+npm ls --depth=0 2>&1 | head -15
 echo
 
 # Check .env file

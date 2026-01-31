@@ -208,8 +208,17 @@ if [ -d /root/worktrack/backend ] && [ -d /root/worktrack/web ]; then
   echo "[setup] Installing dependencies and starting services..."
   
   cd /root/worktrack/backend
+  echo "   Clearing npm cache..."
+  npm cache clean --force 2>&1 | grep -E "(cleared|cache)" | head -2 || true
+  
   echo "   Installing backend dependencies..."
-  npm install --no-audit --no-fund 2>&1 | grep -E "(added|packages|warn|error)" | head -5 || true
+  npm install 2>&1 | tail -10 || true
+  
+  # Verify express is actually installed
+  if ! npm list express >/dev/null 2>&1; then
+    echo "   ❌ npm install failed, retrying with different flags..."
+    npm install --legacy-peer-deps 2>&1 | tail -10 || true
+  fi
 
   # Ensure required env vars for backend
   CONTAINER_IP=$(hostname -I 2>/dev/null | awk "{print \$1}" || true)
