@@ -33,7 +33,7 @@ app.use(helmet({
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", process.env.FRONTEND_URL || 'http://localhost:5173'],
-      frameDest: ["'none'"],
+      frameAncestors: ["'none'"],
     },
   },
   hsts: { maxAge: 31536000, includeSubDomains: true },
