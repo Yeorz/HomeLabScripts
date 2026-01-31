@@ -167,10 +167,10 @@ install_dependencies() {
 }
 
 install_nodejs() {
-    log "Installing Node.js 18+..."
+    log "Installing Node.js 22 (LTS)..."
     
     pct exec "$CONTAINER_ID" -- bash -c '
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
         apt-get install -y nodejs
     '
     

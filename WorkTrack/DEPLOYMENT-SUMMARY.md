@@ -35,7 +35,7 @@ scripts/
 **What it does:**
 - ✅ Creates LXC container (Ubuntu 22.04)
 - ✅ Configures networking (static IP, gateway)
-- ✅ Installs dependencies (Node.js 18+, npm, Docker, SQLite3)
+- ✅ Installs dependencies (Node.js 22 LTS, npm, Docker, SQLite3)
 - ✅ Sets up application directories (/opt/worktrack)
 - ✅ Configures systemd services (backend on 3001, web on 5173)
 - ✅ Hardens security (UFW firewall, SSH key-only auth)

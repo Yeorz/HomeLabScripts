@@ -6,7 +6,7 @@ This README provides instructions to **build and run the Workout Tracker app loc
 
 ## Prerequisites
 
-* **Node.js** >= 18
+* **Node.js** >= 22 (LTS)
 * **npm** >= 9
 * **Docker** >= 20
 * **Xcode** (for Apple Watch and iOS builds)
