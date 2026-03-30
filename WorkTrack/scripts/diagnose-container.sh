@@ -67,9 +67,13 @@ echo
 # Now restart with pm2
 echo "📌 Restarting backend with pm2..."
 pm2 delete worktrack-backend 2>/dev/null || true
-pm2 start --name worktrack-backend --cwd /root/worktrack/backend -- node server.js
-sleep 2
-pm2 logs worktrack-backend --lines 50
+sleep 1
+cd /root/worktrack/backend
+pm2 start server.js --name worktrack-backend --cwd /root/worktrack/backend
+sleep 3
+pm2 list
+echo
+pm2 logs worktrack-backend --lines 20
 echo
 
 # Check nginx
