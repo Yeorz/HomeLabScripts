@@ -74,3 +74,4 @@ backend/db.sqlite-*
 /tmp/
 .tmp/
 tmp/
+webapp/config.php
