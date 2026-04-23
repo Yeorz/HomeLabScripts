@@ -36,10 +36,16 @@ $categoryIcon = [
         <h1>Oefeningen</h1>
         <p>Blader en beheer je oefeningenbibliotheek</p>
     </div>
-    <button class="btn btn-primary" onclick="openNewExerciseModal()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Oefening toevoegen
-    </button>
+    <div style="display:flex;gap:0.5rem">
+        <a href="/webapp/import.php" class="btn btn-secondary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Bibliotheek importeren
+        </a>
+        <button class="btn btn-primary" onclick="openNewExerciseModal()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+            Eigen oefening
+        </button>
+    </div>
 </div>
 
 <!-- Search + filter -->

@@ -8,7 +8,7 @@ $settings   = getSettings();
 $theme      = $settings['theme'];
 $unitSystem = $settings['unit_system'];
 ?><!DOCTYPE html>
-<html lang="nl" data-theme="<?= h($theme) ?>">
+<html lang="en" data-theme="<?= h($theme) ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -31,12 +31,12 @@ $unitSystem = $settings['unit_system'];
 
         <div class="nav-links">
             <a href="/webapp/" class="nav-link<?= $activePage === 'dashboard' ? ' active' : '' ?>">Dashboard</a>
-            <a href="/webapp/history.php" class="nav-link<?= $activePage === 'history' ? ' active' : '' ?>">Geschiedenis</a>
-            <a href="/webapp/exercises.php" class="nav-link<?= $activePage === 'exercises' ? ' active' : '' ?>">Oefeningen</a>
-            <a href="/webapp/settings.php" class="nav-link<?= $activePage === 'settings' ? ' active' : '' ?>">Instellingen</a>
+            <a href="/webapp/history.php" class="nav-link<?= $activePage === 'history' ? ' active' : '' ?>">History</a>
+            <a href="/webapp/exercises.php" class="nav-link<?= $activePage === 'exercises' ? ' active' : '' ?>">Exercises</a>
+            <a href="/webapp/settings.php" class="nav-link<?= $activePage === 'settings' ? ' active' : '' ?>">Settings</a>
         </div>
 
-        <button class="nav-toggle" id="navToggle" aria-label="Menu openen">
+        <button class="nav-toggle" id="navToggle" aria-label="Open menu">
             <span></span><span></span><span></span>
         </button>
     </div>
@@ -44,9 +44,9 @@ $unitSystem = $settings['unit_system'];
 
 <div class="nav-mobile" id="navMobile">
     <a href="/webapp/" class="nav-mobile-link<?= $activePage === 'dashboard' ? ' active' : '' ?>">Dashboard</a>
-    <a href="/webapp/history.php" class="nav-mobile-link<?= $activePage === 'history' ? ' active' : '' ?>">Geschiedenis</a>
-    <a href="/webapp/exercises.php" class="nav-mobile-link<?= $activePage === 'exercises' ? ' active' : '' ?>">Oefeningen</a>
-    <a href="/webapp/settings.php" class="nav-mobile-link<?= $activePage === 'settings' ? ' active' : '' ?>">Instellingen</a>
+    <a href="/webapp/history.php" class="nav-mobile-link<?= $activePage === 'history' ? ' active' : '' ?>">History</a>
+    <a href="/webapp/exercises.php" class="nav-mobile-link<?= $activePage === 'exercises' ? ' active' : '' ?>">Exercises</a>
+    <a href="/webapp/settings.php" class="nav-mobile-link<?= $activePage === 'settings' ? ' active' : '' ?>">Settings</a>
 </div>
 
 <main class="main">
