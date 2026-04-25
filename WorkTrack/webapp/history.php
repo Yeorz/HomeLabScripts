@@ -1,5 +1,5 @@
 <?php
-$pageTitle  = 'Geschiedenis';
+$pageTitle  = 'History';
 $activePage = 'history';
 require_once __DIR__ . '/includes/header.php';
 
@@ -19,55 +19,54 @@ $stmt = $pdo->query('
 ');
 $allWorkouts = $stmt->fetchAll();
 
-// Group by year-month
+$months      = ['', 'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+$monthsShort = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 $grouped = [];
-$monthsNL = ['', 'januari', 'februari', 'maart', 'april', 'mei', 'juni',
-             'juli', 'augustus', 'september', 'oktober', 'november', 'december'];
 foreach ($allWorkouts as $w) {
     $key = date('Y-m', strtotime($w['date']));
     $grouped[$key][] = $w;
 }
-
-$dayMonthsShort = ['', 'jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
 ?>
 
 <div class="page-header">
     <div class="page-header-text">
-        <h1>Geschiedenis</h1>
-        <p><?= count($allWorkouts) ?> workouts opgeslagen</p>
+        <h1>History</h1>
+        <p><?= count($allWorkouts) ?> workouts logged</p>
     </div>
     <a href="/webapp/workout.php" class="btn btn-primary">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Nieuw workout
+        New workout
     </a>
 </div>
 
 <?php if (empty($allWorkouts)): ?>
 <div class="empty-state">
     <div class="empty-state-icon">📋</div>
-    <h3>Nog geen workouts</h3>
-    <p>Je workout geschiedenis verschijnt hier zodra je je eerste workout logt.</p>
-    <a href="/webapp/workout.php" class="btn btn-primary">Start eerste workout</a>
+    <h3>No workouts yet</h3>
+    <p>Your workout history will appear here once you log your first session.</p>
+    <a href="/webapp/workout.php" class="btn btn-primary">Start first workout</a>
 </div>
 <?php else: ?>
 
 <?php foreach ($grouped as $key => $workouts):
     [$year, $mon] = explode('-', $key);
-    $label = $monthsNL[(int)$mon] . ' ' . $year;
+    $label = $months[(int)$mon] . ' ' . $year;
 ?>
 <div class="section">
     <div class="section-header">
-        <span class="section-title"><?= h(ucfirst($label)) ?></span>
+        <span class="section-title"><?= h($label) ?></span>
         <span class="badge badge-muted"><?= count($workouts) ?> workouts</span>
     </div>
 
     <div class="workout-list">
         <?php foreach ($workouts as $w):
-            $ts    = strtotime($w['date']);
-            $day   = date('j', $ts);
-            $month = $dayMonthsShort[(int)date('n', $ts)];
-            $name  = $w['name'] ?: formatDateNL($w['date']);
-            $vol   = (float)$w['total_volume_kg'];
+            $ts     = strtotime($w['date']);
+            $day    = date('j', $ts);
+            $month  = $monthsShort[(int)date('n', $ts)];
+            $name   = $w['name'] ?: formatDate($w['date']);
+            $vol    = (float)$w['total_volume_kg'];
             $volStr = $unitSystem === 'imperial'
                 ? number_format($vol * 2.20462) . ' lbs'
                 : number_format($vol) . ' kg';
@@ -82,13 +81,13 @@ $dayMonthsShort = ['', 'jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', '
                 <div class="workout-item-info">
                     <div class="workout-item-name"><?= h($name) ?></div>
                     <div class="workout-item-meta">
-                        <span><?= $w['exercise_count'] ?> oefeningen</span>
+                        <span><?= $w['exercise_count'] ?> exercises</span>
                         <span><?= $w['set_count'] ?> sets</span>
                         <?php if ($w['duration_min']): ?>
                         <span><?= $w['duration_min'] ?> min</span>
                         <?php endif; ?>
                         <?php if (!$w['end_time']): ?>
-                        <span class="badge badge-danger">Niet afgerond</span>
+                        <span class="badge badge-danger">Incomplete</span>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -105,16 +104,16 @@ $dayMonthsShort = ['', 'jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', '
                 <div style="display:flex;gap:0.5rem;flex-shrink:0">
                     <a href="/webapp/workout.php?id=<?= $w['id'] ?>"
                        class="btn btn-sm btn-secondary"
-                       onclick="event.stopPropagation()">Bewerken</a>
+                       onclick="event.stopPropagation()">Edit</a>
                     <button class="btn-icon"
                             onclick="event.stopPropagation();deleteWorkout(<?= $w['id'] ?>, this)"
-                            title="Verwijder workout">
+                            title="Delete workout">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                     </button>
                 </div>
             </div>
             <div class="workout-detail" id="detail-<?= $w['id'] ?>">
-                <div class="loading text-muted text-sm" style="padding:0.5rem">Laden...</div>
+                <div class="loading text-muted text-sm" style="padding:0.5rem">Loading...</div>
             </div>
         </div>
         <?php endforeach; ?>
@@ -138,14 +137,14 @@ async function toggleDetail(row, workoutId) {
             detail.innerHTML = renderDetail(data);
             detail.dataset.loaded = '1';
         } catch {
-            detail.innerHTML = '<p class="text-muted text-sm">Kon details niet laden.</p>';
+            detail.innerHTML = '<p class="text-muted text-sm">Could not load details.</p>';
         }
     }
 }
 
 function renderDetail(data) {
     if (!data.exercises || !data.exercises.length) {
-        return '<p class="text-muted text-sm">Geen oefeningen gelogd.</p>';
+        return '<p class="text-muted text-sm">No exercises logged.</p>';
     }
     const unit = UNIT_SYSTEM;
     let html = '';
@@ -156,8 +155,8 @@ function renderDetail(data) {
                 <thead><tr>
                     <th>Set</th>
                     ${ex.category === 'cardio'
-                        ? '<th>Tijd</th><th>Afstand</th>'
-                        : `<th>Gewicht</th><th>Reps</th>`}
+                        ? '<th>Time</th><th>Distance</th>'
+                        : '<th>Weight</th><th>Reps</th>'}
                 </tr></thead>
                 <tbody>`;
         for (const s of ex.sets) {
@@ -181,7 +180,7 @@ function renderDetail(data) {
 }
 
 async function deleteWorkout(id, btn) {
-    if (!confirm('Workout verwijderen? Dit kan niet ongedaan worden gemaakt.')) return;
+    if (!confirm('Delete this workout? This cannot be undone.')) return;
     btn.disabled = true;
     await fetch('/webapp/api/workouts.php?action=delete', {
         method: 'POST',
@@ -189,7 +188,7 @@ async function deleteWorkout(id, btn) {
         body: JSON.stringify({action: 'delete', id})
     });
     btn.closest('.workout-item').remove();
-    showToast('Workout verwijderd', 'info');
+    showToast('Workout deleted', 'info');
 }
 </script>
 

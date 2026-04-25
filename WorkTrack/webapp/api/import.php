@@ -5,34 +5,36 @@ require_once dirname(__DIR__) . '/includes/functions.php';
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST vereist', 405);
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
 
-$body = json_decode(file_get_contents('php://input'), true);
+$body  = json_decode(file_get_contents('php://input'), true);
 $items = $body['exercises'] ?? [];
-if (!is_array($items) || empty($items)) jsonError('Geen oefeningen ontvangen');
+if (!is_array($items) || empty($items)) jsonError('No exercises received');
 
 $pdo = getDB();
 
-// Load all muscle groups into a lookup: name_nl → id
-$stmt   = $pdo->query('SELECT id, name_nl FROM muscle_groups');
+// Build lookup: both name_en and name_nl → id (for flexible matching)
+$stmt   = $pdo->query('SELECT id, name_nl, name_en FROM muscle_groups');
 $groups = [];
 foreach ($stmt->fetchAll() as $row) {
-    $groups[mb_strtolower($row['name_nl'])] = (int)$row['id'];
+    if ($row['name_nl']) $groups[mb_strtolower($row['name_nl'])] = (int)$row['id'];
+    if ($row['name_en']) $groups[mb_strtolower($row['name_en'])] = (int)$row['id'];
 }
 
-// Load existing exercises (by name_nl, lowercase) to detect duplicates
-$stmt    = $pdo->query('SELECT LOWER(name_nl) AS nl FROM exercises');
+// Existing exercises by name_en and name_nl (lowercase) to detect duplicates
+$stmt     = $pdo->query('SELECT LOWER(name_nl) AS nl, LOWER(COALESCE(name_en, \'\')) AS en FROM exercises');
 $existing = [];
 foreach ($stmt->fetchAll() as $row) {
-    $existing[$row['nl']] = true;
+    if ($row['nl']) $existing[$row['nl']] = true;
+    if ($row['en']) $existing[$row['en']] = true;
 }
 
 $allowedCats  = ['kracht', 'cardio', 'flexibiliteit', 'overig'];
 $allowedEquip = ['barbell', 'dumbbell', 'machine', 'cable', 'bodyweight', 'kettlebell', 'bands', 'cardio', 'overig'];
 
-$inserted  = 0;
-$skipped   = 0;
-$errors    = [];
+$inserted = 0;
+$skipped  = 0;
+$errors   = [];
 
 $stmt = $pdo->prepare('
     INSERT INTO exercises (name_nl, name_en, muscle_group_id, category, equipment, is_custom)
@@ -40,30 +42,31 @@ $stmt = $pdo->prepare('
 ');
 
 foreach ($items as $i => $item) {
-    $namNl = trim($item['name_nl'] ?? '');
-    $namEn = trim($item['name_en'] ?? '') ?: null;
-    $grpNm = mb_strtolower(trim($item['spiergroep'] ?? ''));
-    $cat   = in_array($item['categorie'] ?? '', $allowedCats)  ? $item['categorie'] : 'kracht';
-    $equip = in_array($item['materiaal'] ?? '', $allowedEquip) ? $item['materiaal'] : 'overig';
+    $nameEn = trim($item['name_en'] ?? $item['name_nl'] ?? '');
+    $nameNl = trim($item['name_nl'] ?? $nameEn);
+    $grpKey = mb_strtolower(trim($item['spiergroep'] ?? $item['muscle_group'] ?? ''));
+    $cat    = in_array($item['categorie'] ?? $item['category'] ?? '', $allowedCats)  ? ($item['categorie'] ?? $item['category']) : 'kracht';
+    $equip  = in_array($item['materiaal'] ?? $item['equipment'] ?? '', $allowedEquip) ? ($item['materiaal'] ?? $item['equipment']) : 'overig';
 
-    if ($namNl === '') {
-        $errors[] = "Rij $i: naam ontbreekt";
+    if ($nameEn === '' && $nameNl === '') {
+        $errors[] = "Row $i: name is missing";
         continue;
     }
 
-    if (isset($existing[mb_strtolower($namNl)])) {
+    $key = mb_strtolower($nameEn ?: $nameNl);
+    if (isset($existing[$key]) || isset($existing[mb_strtolower($nameNl)])) {
         $skipped++;
         continue;
     }
 
-    $groupId = $groups[$grpNm] ?? null;
+    $groupId = $groups[$grpKey] ?? null;
 
     try {
-        $stmt->execute([$namNl, $namEn, $groupId, $cat, $equip]);
+        $stmt->execute([$nameNl ?: $nameEn, $nameEn ?: null, $groupId, $cat, $equip]);
         $inserted++;
-        $existing[mb_strtolower($namNl)] = true;
+        $existing[$key] = true;
     } catch (PDOException $e) {
-        $errors[] = "Rij $i ($namNl): " . $e->getMessage();
+        $errors[] = "Row $i ($nameEn): " . $e->getMessage();
     }
 }
 

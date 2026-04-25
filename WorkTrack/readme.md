@@ -1,101 +1,101 @@
 # WorkTrack
 
-Zelfgehoste workout tracker met meerdere frontends: een PHP webinterface, een Node.js API, een React dashboard, een React Native mobiele app en een Apple Watch app.
+Self-hosted workout tracker with multiple frontends: a PHP web interface, a Node.js API, a React dashboard, a React Native mobile app, and an Apple Watch app.
 
 ---
 
-## Overzicht
+## Overview
 
-| Component | Stack | Locatie |
+| Component | Stack | Location |
 |---|---|---|
-| **PHP Webinterface** | PHP 8.1+ · MariaDB | `webapp/` |
+| **PHP Web Interface** | PHP 8.1+ · MariaDB | `webapp/` |
 | **API Backend** | Node.js · Express · SQLite | `backend/` |
 | **Web Dashboard** | React · Vite · Chart.js | `web/` |
-| **Mobiele app** | React Native · Expo | `mobile/` |
+| **Mobile App** | React Native · Expo | `mobile/` |
 | **Apple Watch** | SwiftUI · CoreML · HealthKit | `watch/` · `ios/` |
 
 ---
 
-## PHP Webinterface (webapp/)
+## PHP Web Interface (webapp/)
 
-De eenvoudigste manier om workouts bij te houden — geen Node.js of npm nodig. Werkt direct op een standaard LAMP/LEMP-stack.
+The simplest way to log workouts — no Node.js or npm required. Runs on any standard LAMP/LEMP stack.
 
-### Vereisten
+### Requirements
 
-- PHP 8.1 of hoger
-- MariaDB 10.6+ of MySQL 8+
-- Apache of Nginx met PHP
+- PHP 8.1 or higher
+- MariaDB 10.6+ or MySQL 8+
+- Apache or Nginx with PHP
 
-### Installatie
+### Installation
 
-**1. Database aanmaken**
+**1. Create the database**
 
 ```bash
 mysql -u root -p < webapp/setup.sql
 ```
 
-Dit maakt de `worktrack` database aan en vult 174 oefeningen in verdeeld over 13 spiergroepen.
+This creates the `worktrack` database and seeds 174 exercises across 13 muscle groups.
 
-**2. Config instellen**
+**2. Configure the database connection**
 
 ```bash
 cp webapp/config.example.php webapp/config.php
 ```
 
-Pas `webapp/config.php` aan met je databasegegevens:
+Edit `webapp/config.php` with your credentials:
 
 ```php
 define('DB_HOST', 'localhost');
 define('DB_NAME', 'worktrack');
-define('DB_USER', 'jouw_gebruiker');
-define('DB_PASS', 'jouw_wachtwoord');
+define('DB_USER', 'your_user');
+define('DB_PASS', 'your_password');
 ```
 
-**3. Webserver configureren**
+**3. Point your web server at the project root**
 
-Wijs de document root van je webserver naar de projectmap zodat `/webapp/` bereikbaar is, of gebruik de ingebouwde PHP server voor lokaal gebruik:
+For local development with the built-in PHP server:
 
 ```bash
 php -S localhost:8080 -t .
 ```
 
-Open de app op: `http://localhost:8080/webapp/`
+Then open: `http://localhost:8080/webapp/`
 
-### Functies
+### Features
 
-- **Dashboard** — totaalstatistieken, recente workouts
-- **Workout loggen** — live timer, oefeningen zoeken en toevoegen, sets loggen met gewicht/reps of tijd/afstand, warming-up sets, auto-save
-- **Geschiedenis** — alle workouts per maand, uitklapbare detailweergave
-- **Oefeningenbibliotheek** — 174 ingebouwde oefeningen, eigen oefeningen toevoegen
-- **Instellingen** — metrisch (kg/km) of imperiaal (lbs/miles), donker/licht thema
-- **Geen npm/composer nodig** — puur PHP + vanilla JS
+- **Dashboard** — total stats, recent workouts
+- **Workout logging** — live timer, exercise search, set logging with weight/reps or time/distance, warm-up sets, auto-save via AJAX
+- **History** — all workouts grouped by month, expandable detail view
+- **Exercise library** — 174 built-in exercises, add custom exercises
+- **Settings** — metric (kg/km) or imperial (lbs/miles), dark/light theme
+- **No npm or Composer required** — pure PHP + vanilla JS
 
-### Bestandsstructuur
+### File structure
 
 ```
 webapp/
-├── setup.sql               Database schema + 174 oefeningen
-├── config.php              Databaseconfiguratie (niet in git)
-├── config.example.php      Voorbeeld config
+├── setup.sql               Database schema + 174 exercises
+├── config.php              Database credentials (git-ignored)
+├── config.example.php      Example config
 ├── index.php               Dashboard
-├── workout.php             Workout loggen
-├── history.php             Workout geschiedenis
-├── exercises.php           Oefeningenbibliotheek
-├── settings.php            Instellingen
-├── import.php              Oefeningen importeren (extra)
+├── workout.php             Log a workout
+├── history.php             Workout history
+├── exercises.php           Exercise library
+├── settings.php            Settings
+├── import.php              Bulk exercise import tool
 ├── includes/
-│   ├── db.php              PDO databaseverbinding
-│   ├── functions.php       Hulpfuncties (eenheden, opmaak)
-│   ├── header.php          Navigatie + HTML head
+│   ├── db.php              PDO database connection
+│   ├── functions.php       Helper functions (units, formatting)
+│   ├── header.php          Navigation + HTML head
 │   └── footer.php          Scripts + HTML close
 ├── api/
-│   ├── workouts.php        REST API voor workouts/sets
-│   ├── exercises.php       REST API voor oefeningen
-│   └── import.php          Bulk import API
+│   ├── workouts.php        REST API for workouts and sets
+│   ├── exercises.php       REST API for exercises
+│   └── import.php          Bulk import API endpoint
 ├── data/
-│   └── exercises.php       Volledige oefeningen dataset
+│   └── exercises.php       Full exercise dataset (174 entries)
 └── assets/
-    ├── css/style.css       Stylesheet (donker thema)
+    ├── css/style.css       Stylesheet (dark theme)
     └── js/app.js           Vanilla JavaScript
 ```
 
@@ -103,12 +103,12 @@ webapp/
 
 ## Node.js API Backend (backend/)
 
-### Vereisten
+### Requirements
 
 - Node.js 22+ (LTS)
 - npm 9+
 
-### Starten
+### Start
 
 ```bash
 cd backend
@@ -116,7 +116,7 @@ npm install
 node server.js
 ```
 
-API draait op: `http://localhost:3001`
+API runs at: `http://localhost:3001`
 
 ### Docker
 
@@ -129,11 +129,11 @@ docker run -p 3001:3001 worktrack-backend
 
 ## React Web Dashboard (web/)
 
-### Vereisten
+### Requirements
 
 - Node.js 22+
 
-### Starten
+### Start
 
 ```bash
 cd web
@@ -141,27 +141,20 @@ npm install
 npm run dev
 ```
 
-Dashboard op: `http://localhost:5173`
+Dashboard at: `http://localhost:5173`
 
-### Functies
-
-- Geauthenticeerd dashboard met grafieken en samenvattingen
-- Publieke deelbare pagina's per gebruiker: `http://localhost:5173/public/<userId>`
+**Features:** authenticated dashboard with charts and summaries, public shareable pages per user at `/public/<userId>`.
 
 ---
 
-## React Native Mobiele App (mobile/)
+## React Native Mobile App (mobile/)
 
-### Vereisten
+### Requirements
 
 - Node.js 22+
-- Expo CLI
+- Expo CLI: `npm install -g expo-cli`
 
-```bash
-npm install -g expo-cli
-```
-
-### Starten
+### Start
 
 ```bash
 cd mobile
@@ -169,21 +162,21 @@ npm install
 npx expo start
 ```
 
-Scan de QR-code met de Expo Go app (Android/iOS). Zorg dat de backend draait op `http://localhost:3001`.
+Scan the QR code with the Expo Go app (Android/iOS). Requires the backend running at `http://localhost:3001`.
 
 ---
 
 ## Apple Watch App (watch/ · ios/)
 
 1. Open `WorkoutWatchApp.xcodeproj` in Xcode
-2. Zorg dat `ExerciseClassifier.mlmodel` is opgenomen in het Watch target
-3. Build en run op je gekoppelde Apple Watch
+2. Ensure `ExerciseClassifier.mlmodel` is included in the Watch target
+3. Build and run on your paired Apple Watch
 
-De watch-app gebruikt **CoreML** voor bewegingsclassificatie en synchroniseert resultaten automatisch naar de backend.
+The Watch app uses **CoreML** for motion classification and syncs results to the backend automatically.
 
 ---
 
-## Alles tegelijk starten (Docker Compose)
+## All-in-one with Docker Compose
 
 ```bash
 docker compose up --build
@@ -192,18 +185,18 @@ docker compose up --build
 - Backend: `http://localhost:3001`
 - Web dashboard: `http://localhost:5173`
 
-> De mobiele app en Apple Watch vereisen nog steeds de native omgeving (Expo/Xcode).
+> The mobile app and Apple Watch still require the native toolchain (Expo / Xcode).
 
 ---
 
-## Snel overzicht
+## Summary
 
-| Onderdeel | Technologie |
+| Component | Technology |
 |---|---|
-| PHP webinterface | PHP 8.1 · MariaDB · Vanilla JS |
+| PHP web interface | PHP 8.1 · MariaDB · Vanilla JS |
 | API backend | Node.js · Express · SQLite |
 | Web dashboard | React · Vite · Chart.js |
-| Mobiele app | React Native · Expo |
+| Mobile app | React Native · Expo |
 | Apple Watch | SwiftUI · CoreML · HealthKit |
-| Oefeningenbibliotheek | 174 oefeningen · 13 spiergroepen |
-| Eenheden | Metrisch (NL) standaard · Imperiaal optioneel |
+| Exercise library | 174 exercises · 13 muscle groups |
+| Units | Metric (kg/km) default · Imperial (lbs/miles) optional |

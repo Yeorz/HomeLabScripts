@@ -5,25 +5,16 @@ require_once __DIR__ . '/includes/header.php';
 
 $pdo = getDB();
 
-// Stats
 $totalWorkouts = (int)$pdo->query('SELECT COUNT(*) FROM workouts')->fetchColumn();
 
 $weekStart = date('Y-m-d', strtotime('monday this week'));
 $stmtWeek  = $pdo->prepare('SELECT COUNT(*) FROM workouts WHERE date >= ?');
 $stmtWeek->execute([$weekStart]);
-$thisWeek  = (int)$stmtWeek->fetchColumn();
+$thisWeek = (int)$stmtWeek->fetchColumn();
 
-$stmtVol = $pdo->query('
-    SELECT COALESCE(SUM(s.weight_kg * s.reps), 0)
-    FROM sets s
-    WHERE s.is_warmup = 0
-');
-$totalVolume = (float)$stmtVol->fetchColumn();
+$totalVolume = (float)$pdo->query('SELECT COALESCE(SUM(s.weight_kg * s.reps), 0) FROM sets s WHERE s.is_warmup = 0')->fetchColumn();
+$totalSets   = (int)$pdo->query('SELECT COUNT(*) FROM sets WHERE is_warmup = 0')->fetchColumn();
 
-$stmtSets = $pdo->query('SELECT COUNT(*) FROM sets WHERE is_warmup = 0');
-$totalSets = (int)$stmtSets->fetchColumn();
-
-// Recent workouts
 $stmtRecent = $pdo->query('
     SELECT w.*,
            COUNT(DISTINCT we.id)                           AS exercise_count,
@@ -39,36 +30,33 @@ $stmtRecent = $pdo->query('
 ');
 $recentWorkouts = $stmtRecent->fetchAll();
 
-$monthsNL = ['', 'jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+$monthsShort = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 ?>
 
 <div class="page-header">
     <div class="page-header-text">
         <h1>Dashboard</h1>
-        <p>Welkom terug — blijf consistent!</p>
+        <p>Welcome back — stay consistent!</p>
     </div>
     <a href="/webapp/workout.php" class="btn btn-primary btn-lg">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-            <path d="M12 5v14M5 12h14"/>
-        </svg>
-        Nieuw workout
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        New workout
     </a>
 </div>
 
-<!-- Stats -->
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-label">Totaal workouts</div>
+        <div class="stat-label">Total workouts</div>
         <div class="stat-value"><?= $totalWorkouts ?></div>
-        <div class="stat-sub">Alle sessies</div>
+        <div class="stat-sub">All sessions</div>
     </div>
     <div class="stat-card accent">
-        <div class="stat-label">Deze week</div>
+        <div class="stat-label">This week</div>
         <div class="stat-value"><?= $thisWeek ?></div>
-        <div class="stat-sub">Vanaf maandag</div>
+        <div class="stat-sub">Since Monday</div>
     </div>
     <div class="stat-card">
-        <div class="stat-label">Totaal volume</div>
+        <div class="stat-label">Total volume</div>
         <div class="stat-value">
             <?php
             if ($unitSystem === 'imperial') {
@@ -81,39 +69,38 @@ $monthsNL = ['', 'jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 
             }
             ?>
         </div>
-        <div class="stat-sub">Totaal gewicht × reps</div>
+        <div class="stat-sub">Total weight × reps</div>
     </div>
     <div class="stat-card">
-        <div class="stat-label">Totaal sets</div>
+        <div class="stat-label">Total sets</div>
         <div class="stat-value"><?= number_format($totalSets) ?></div>
-        <div class="stat-sub">Exclusief warming-up</div>
+        <div class="stat-sub">Excluding warm-up</div>
     </div>
 </div>
 
-<!-- Recent workouts -->
 <div class="section">
     <div class="section-header">
-        <span class="section-title">Recente workouts</span>
+        <span class="section-title">Recent workouts</span>
         <?php if ($totalWorkouts > 7): ?>
-        <a href="/webapp/history.php" class="btn btn-sm btn-secondary">Alle workouts</a>
+        <a href="/webapp/history.php" class="btn btn-sm btn-secondary">All workouts</a>
         <?php endif; ?>
     </div>
 
     <?php if (empty($recentWorkouts)): ?>
     <div class="empty-state">
         <div class="empty-state-icon">🏋️</div>
-        <h3>Nog geen workouts</h3>
-        <p>Start je eerste workout en begin met het bijhouden van je progressie.</p>
+        <h3>No workouts yet</h3>
+        <p>Start your first workout and begin tracking your progress.</p>
         <a href="/webapp/workout.php" class="btn btn-primary">Start workout</a>
     </div>
     <?php else: ?>
     <div class="workout-list">
         <?php foreach ($recentWorkouts as $w):
-            $ts    = strtotime($w['date']);
-            $day   = date('j', $ts);
-            $month = $monthsNL[(int)date('n', $ts)];
-            $name  = $w['name'] ?: formatDateNL($w['date']);
-            $vol   = (float)$w['total_volume_kg'];
+            $ts     = strtotime($w['date']);
+            $day    = date('j', $ts);
+            $month  = $monthsShort[(int)date('n', $ts)];
+            $name   = $w['name'] ?: formatDate($w['date']);
+            $vol    = (float)$w['total_volume_kg'];
             $volStr = $unitSystem === 'imperial'
                 ? number_format($vol * 2.20462) . ' lbs'
                 : number_format($vol) . ' kg';
@@ -126,7 +113,7 @@ $monthsNL = ['', 'jan', 'feb', 'mrt', 'apr', 'mei', 'jun', 'jul', 'aug', 'sep', 
             <div class="workout-item-info">
                 <div class="workout-item-name"><?= h($name) ?></div>
                 <div class="workout-item-meta">
-                    <span><?= $w['exercise_count'] ?> oefeningen</span>
+                    <span><?= $w['exercise_count'] ?> exercises</span>
                     <span><?= $w['set_count'] ?> sets</span>
                     <?php if ($w['duration_min']): ?>
                     <span><?= $w['duration_min'] ?> min</span>

@@ -9,7 +9,6 @@ $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? ($_POST['action'] ?? '');
 $pdo    = getDB();
 
-// Parse JSON body for PUT/PATCH
 $body = [];
 if (in_array($method, ['POST', 'PUT', 'PATCH'])) {
     $raw = file_get_contents('php://input');
@@ -23,7 +22,6 @@ if (in_array($method, ['POST', 'PUT', 'PATCH'])) {
 
 switch ($action) {
 
-    /* ── List ───────────────────────────────────────────────── */
     case 'list':
         $limit  = min((int)($_GET['limit'] ?? 20), 100);
         $offset = max((int)($_GET['offset'] ?? 0), 0);
@@ -44,16 +42,14 @@ switch ($action) {
         jsonResponse($stmt->fetchAll());
         break;
 
-    /* ── Get single ─────────────────────────────────────────── */
     case 'get':
         $id = (int)($_GET['id'] ?? 0);
-        if (!$id) jsonError('id ontbreekt');
+        if (!$id) jsonError('id is required');
         $workout = getWorkoutWithExercises($id);
-        if (!$workout) jsonError('Workout niet gevonden', 404);
+        if (!$workout) jsonError('Workout not found', 404);
         jsonResponse($workout);
         break;
 
-    /* ── Create ─────────────────────────────────────────────── */
     case 'create':
         $date = $body['date'] ?? date('Y-m-d');
         $name = trim($body['name'] ?? '');
@@ -65,45 +61,41 @@ switch ($action) {
         jsonResponse($stmt->fetch());
         break;
 
-    /* ── Update name/notes ───────────────────────────────────── */
     case 'update':
         $id = (int)($body['id'] ?? 0);
-        if (!$id) jsonError('id ontbreekt');
+        if (!$id) jsonError('id is required');
         $fields = [];
         $params = [];
         if (array_key_exists('name', $body))  { $fields[] = 'name = ?';  $params[] = trim($body['name']) ?: null; }
         if (array_key_exists('notes', $body)) { $fields[] = 'notes = ?'; $params[] = trim($body['notes']) ?: null; }
-        if (!$fields) jsonError('Niets om bij te werken');
+        if (!$fields) jsonError('Nothing to update');
         $params[] = $id;
         $pdo->prepare('UPDATE workouts SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
         jsonResponse(['ok' => true]);
         break;
 
-    /* ── Finish workout ──────────────────────────────────────── */
     case 'finish':
         $id = (int)($body['id'] ?? 0);
-        if (!$id) jsonError('id ontbreekt');
+        if (!$id) jsonError('id is required');
         $pdo->prepare('UPDATE workouts SET end_time = NOW() WHERE id = ? AND end_time IS NULL')->execute([$id]);
         jsonResponse(['ok' => true]);
         break;
 
-    /* ── Delete ──────────────────────────────────────────────── */
     case 'delete':
         $id = (int)($body['id'] ?? 0);
-        if (!$id) jsonError('id ontbreekt');
+        if (!$id) jsonError('id is required');
         $pdo->prepare('DELETE FROM workouts WHERE id = ?')->execute([$id]);
         jsonResponse(['ok' => true]);
         break;
 
-    /* ── Add exercise ────────────────────────────────────────── */
     case 'add_exercise':
         $workoutId  = (int)($body['workout_id'] ?? 0);
         $exerciseId = (int)($body['exercise_id'] ?? 0) ?: null;
         $customName = trim($body['custom_name'] ?? '');
-        if (!$workoutId) jsonError('workout_id ontbreekt');
-        if (!$exerciseId && $customName === '') jsonError('exercise_id of custom_name vereist');
+        if (!$workoutId) jsonError('workout_id is required');
+        if (!$exerciseId && $customName === '') jsonError('exercise_id or custom_name is required');
 
-        $stmt = $pdo->prepare('SELECT MAX(order_index) AS mx FROM workout_exercises WHERE workout_id = ?');
+        $stmt = $pdo->prepare('SELECT MAX(order_index) FROM workout_exercises WHERE workout_id = ?');
         $stmt->execute([$workoutId]);
         $next = (int)($stmt->fetchColumn() ?? -1) + 1;
 
@@ -111,12 +103,13 @@ switch ($action) {
         $stmt->execute([$workoutId, $exerciseId, $customName ?: null, $next]);
         $weId = (int)$pdo->lastInsertId();
 
-        // Return full exercise info
         $stmt = $pdo->prepare('
-            SELECT we.id, we.order_index, COALESCE(we.custom_name, e.name_nl) AS name,
-                   e.category, e.equipment, mg.name_nl AS muscle_group
+            SELECT we.id, we.order_index,
+                   COALESCE(we.custom_name, e.name_en, e.name_nl) AS name,
+                   e.category, e.equipment,
+                   mg.name_en AS muscle_group
             FROM workout_exercises we
-            LEFT JOIN exercises e  ON e.id  = we.exercise_id
+            LEFT JOIN exercises e      ON e.id  = we.exercise_id
             LEFT JOIN muscle_groups mg ON mg.id = e.muscle_group_id
             WHERE we.id = ?
         ');
@@ -124,28 +117,25 @@ switch ($action) {
         jsonResponse($stmt->fetch());
         break;
 
-    /* ── Remove exercise ─────────────────────────────────────── */
     case 'remove_exercise':
         $weId = (int)($body['we_id'] ?? 0);
-        if (!$weId) jsonError('we_id ontbreekt');
+        if (!$weId) jsonError('we_id is required');
         $pdo->prepare('DELETE FROM workout_exercises WHERE id = ?')->execute([$weId]);
         jsonResponse(['ok' => true]);
         break;
 
-    /* ── Save set (upsert) ───────────────────────────────────── */
     case 'save_set':
         $weId      = (int)($body['we_id'] ?? 0);
         $setNumber = (int)($body['set_number'] ?? 0);
-        if (!$weId || !$setNumber) jsonError('we_id en set_number vereist');
+        if (!$weId || !$setNumber) jsonError('we_id and set_number are required');
 
-        $weightKg = isset($body['weight_kg']) && $body['weight_kg'] !== '' ? (float)$body['weight_kg'] : null;
-        $reps     = isset($body['reps'])      && $body['reps']      !== '' ? (int)$body['reps']        : null;
-        $duration = isset($body['duration_seconds']) && $body['duration_seconds'] !== '' ? (int)$body['duration_seconds'] : null;
-        $distance = isset($body['distance_km'])      && $body['distance_km']      !== '' ? (float)$body['distance_km']    : null;
-        $rpe      = isset($body['rpe'])       && $body['rpe']       !== '' ? (int)$body['rpe']         : null;
+        $weightKg = isset($body['weight_kg'])         && $body['weight_kg']         !== '' ? (float)$body['weight_kg']         : null;
+        $reps     = isset($body['reps'])              && $body['reps']              !== '' ? (int)$body['reps']                 : null;
+        $duration = isset($body['duration_seconds'])  && $body['duration_seconds']  !== '' ? (int)$body['duration_seconds']    : null;
+        $distance = isset($body['distance_km'])       && $body['distance_km']       !== '' ? (float)$body['distance_km']       : null;
+        $rpe      = isset($body['rpe'])               && $body['rpe']               !== '' ? (int)$body['rpe']                 : null;
         $warmup   = (int)(bool)($body['is_warmup'] ?? false);
 
-        // Check existing
         $stmt = $pdo->prepare('SELECT id FROM sets WHERE workout_exercise_id = ? AND set_number = ?');
         $stmt->execute([$weId, $setNumber]);
         $existing = $stmt->fetchColumn();
@@ -167,21 +157,20 @@ switch ($action) {
         }
         break;
 
-    /* ── Remove set ──────────────────────────────────────────── */
     case 'remove_set':
-        $setId = (int)($body['set_id'] ?? 0);
-        $weId  = (int)($body['we_id']  ?? 0);
-        $setNum= (int)($body['set_number'] ?? 0);
+        $setId  = (int)($body['set_id']     ?? 0);
+        $weId   = (int)($body['we_id']      ?? 0);
+        $setNum = (int)($body['set_number'] ?? 0);
         if ($setId) {
             $pdo->prepare('DELETE FROM sets WHERE id = ?')->execute([$setId]);
         } elseif ($weId && $setNum) {
             $pdo->prepare('DELETE FROM sets WHERE workout_exercise_id = ? AND set_number = ?')->execute([$weId, $setNum]);
         } else {
-            jsonError('set_id of we_id+set_number vereist');
+            jsonError('set_id or we_id + set_number is required');
         }
         jsonResponse(['ok' => true]);
         break;
 
     default:
-        jsonError('Onbekende actie: ' . htmlspecialchars($action), 404);
+        jsonError('Unknown action: ' . htmlspecialchars($action), 404);
 }

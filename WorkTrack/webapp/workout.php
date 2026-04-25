@@ -4,7 +4,6 @@ require_once __DIR__ . '/includes/functions.php';
 
 $pdo = getDB();
 
-// Create new workout and redirect
 if (!isset($_GET['id'])) {
     $stmt = $pdo->prepare('INSERT INTO workouts (name, date, start_time) VALUES (NULL, CURDATE(), NOW())');
     $stmt->execute();
@@ -20,18 +19,18 @@ if (!$workout) {
     exit;
 }
 
-$pageTitle  = $workout['name'] ?: 'Workout loggen';
+$pageTitle  = $workout['name'] ?: 'Log workout';
 $activePage = 'dashboard';
 require_once __DIR__ . '/includes/header.php';
 
 $equipmentLabels = [
-    'barbell'    => 'Halter',
+    'barbell'    => 'Barbell',
     'dumbbell'   => 'Dumbbell',
     'machine'    => 'Machine',
-    'cable'      => 'Kabel',
-    'bodyweight' => 'Lichaamsgewicht',
+    'cable'      => 'Cable',
+    'bodyweight' => 'Bodyweight',
     'kettlebell' => 'Kettlebell',
-    'bands'      => 'Weerstandsbanden',
+    'bands'      => 'Resistance Bands',
     'cardio'     => 'Cardio',
     'overig'     => '',
 ];
@@ -46,7 +45,6 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
      data-finished="<?= $workout['end_time'] ? '1' : '0' ?>">
 </div>
 
-<!-- Toolbar -->
 <div class="workout-toolbar">
     <div class="workout-timer" id="workoutTimer">0:00</div>
 
@@ -54,12 +52,12 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
         <input type="text"
                id="workoutName"
                value="<?= h($workout['name'] ?? '') ?>"
-               placeholder="<?= h(formatDateNL($workout['date'])) ?>"
+               placeholder="<?= h(formatDate($workout['date'])) ?>"
                <?= $workout['end_time'] ? 'readonly' : '' ?>>
         <div class="text-dim text-sm" style="margin-top:2px">
-            <?= h(formatDateNL($workout['date'], false)) ?>
+            <?= h(formatDate($workout['date'], false)) ?>
             <?php if ($workout['end_time']): ?>
-            &nbsp;·&nbsp;<span style="color:var(--success)">✓ Afgerond</span>
+            &nbsp;·&nbsp;<span style="color:var(--success)">✓ Completed</span>
             <?php endif; ?>
         </div>
     </div>
@@ -68,20 +66,19 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
         <?php if (!$workout['end_time']): ?>
         <button class="btn btn-primary" id="btnFinish">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M20 6L9 17l-5-5"/></svg>
-            Afronden
+            Finish
         </button>
         <?php else: ?>
-        <a href="/webapp/history.php" class="btn btn-secondary">← Geschiedenis</a>
+        <a href="/webapp/history.php" class="btn btn-secondary">← History</a>
         <?php endif; ?>
         <a href="/webapp/" class="btn btn-secondary btn-sm">← Dashboard</a>
     </div>
 </div>
 
-<!-- Live summary -->
 <div class="live-summary" id="liveSummary">
     <div class="live-stat">
         <div class="live-stat-val" id="sumExercises">0</div>
-        <div class="live-stat-label">Oefeningen</div>
+        <div class="live-stat-label">Exercises</div>
     </div>
     <div class="live-stat">
         <div class="live-stat-val" id="sumSets">0</div>
@@ -93,7 +90,6 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
     </div>
 </div>
 
-<!-- Exercise blocks -->
 <div id="exerciseContainer">
 <?php foreach ($workout['exercises'] as $ex):
     $isCardio = ($ex['category'] === 'cardio');
@@ -109,7 +105,7 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
             <?php endif; ?>
         </div>
         <?php if (!$workout['end_time']): ?>
-        <button class="btn-icon" onclick="removeExercise(<?= $ex['id'] ?>)" title="Verwijder oefening">
+        <button class="btn-icon" onclick="removeExercise(<?= $ex['id'] ?>)" title="Remove exercise">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
         <?php endif; ?>
@@ -119,10 +115,10 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
         <div class="sets-header <?= $isCardio ? 'cardio-cols' : '' ?>">
             <span>Set</span>
             <?php if ($isCardio): ?>
-            <span>Tijd</span>
-            <span>Afstand (<?= $distUnit ?>)</span>
+            <span>Time</span>
+            <span>Distance (<?= $distUnit ?>)</span>
             <?php else: ?>
-            <span>Gewicht (<?= $weightUnit ?>)</span>
+            <span>Weight (<?= $weightUnit ?>)</span>
             <span>Reps</span>
             <span class="col-rpe">RPE</span>
             <?php endif; ?>
@@ -140,11 +136,7 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
         <div class="set-row <?= $isCardio ? 'cardio-cols' : '' ?> <?= $set['is_warmup'] ? 'is-warmup' : '' ?>"
              data-set-id="<?= $set['id'] ?>" data-set-num="<?= $set['set_number'] ?>">
             <div class="set-num">
-                <?php if ($set['is_warmup']): ?>
-                <span title="Warming-up">W</span>
-                <?php else: ?>
-                <?= $set['set_number'] ?>
-                <?php endif; ?>
+                <?= $set['is_warmup'] ? '<span title="Warm-up">W</span>' : $set['set_number'] ?>
             </div>
 
             <?php if ($isCardio): ?>
@@ -153,27 +145,26 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
                    <?= $workout['end_time'] ? 'readonly' : '' ?>
                    onchange="saveSet(<?= $ex['id'] ?>, <?= $set['set_number'] ?>, this.closest('.set-row'))">
             <input class="set-input" type="number" step="0.01" placeholder="<?= $distUnit ?>"
-                   value="<?= h($displayDist) ?>"
+                   value="<?= h((string)$displayDist) ?>"
                    <?= $workout['end_time'] ? 'readonly' : '' ?>
                    onchange="saveSet(<?= $ex['id'] ?>, <?= $set['set_number'] ?>, this.closest('.set-row'))">
             <?php else: ?>
             <input class="set-input" type="number" step="0.5" placeholder="<?= $weightUnit ?>"
-                   value="<?= h($displayWeight) ?>"
+                   value="<?= h((string)$displayWeight) ?>"
                    <?= $workout['end_time'] ? 'readonly' : '' ?>
                    onchange="saveSet(<?= $ex['id'] ?>, <?= $set['set_number'] ?>, this.closest('.set-row'))">
             <input class="set-input" type="number" placeholder="reps"
-                   value="<?= $set['reps'] !== null ? h($set['reps']) : '' ?>"
+                   value="<?= $set['reps'] !== null ? h((string)$set['reps']) : '' ?>"
                    <?= $workout['end_time'] ? 'readonly' : '' ?>
                    onchange="saveSet(<?= $ex['id'] ?>, <?= $set['set_number'] ?>, this.closest('.set-row'))">
             <input class="set-input col-rpe" type="number" min="1" max="10" placeholder="RPE"
-                   value="<?= $set['rpe'] !== null ? h($set['rpe']) : '' ?>"
+                   value="<?= $set['rpe'] !== null ? h((string)$set['rpe']) : '' ?>"
                    <?= $workout['end_time'] ? 'readonly' : '' ?>
                    onchange="saveSet(<?= $ex['id'] ?>, <?= $set['set_number'] ?>, this.closest('.set-row'))">
             <?php endif; ?>
 
             <?php if (!$workout['end_time']): ?>
-            <button class="btn-icon" onclick="removeSet(<?= $ex['id'] ?>, <?= $set['set_number'] ?>, this)"
-                    title="Verwijder set">
+            <button class="btn-icon" onclick="removeSet(<?= $ex['id'] ?>, <?= $set['set_number'] ?>, this)" title="Remove set">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
             <?php else: ?>
@@ -186,11 +177,11 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
     <?php if (!$workout['end_time']): ?>
     <div class="set-footer">
         <button class="btn btn-ghost btn-sm" onclick="addSetRow(<?= $ex['id'] ?>, this)">
-            + Set toevoegen
+            + Add set
         </button>
         <button class="btn btn-sm" style="background:rgba(255,178,63,0.12);color:var(--warning);border:1px solid rgba(255,178,63,0.25)"
                 onclick="addSetRow(<?= $ex['id'] ?>, this, true)">
-            + Warming-up
+            + Warm-up
         </button>
     </div>
     <?php endif; ?>
@@ -201,7 +192,7 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
 <?php if (!$workout['end_time']): ?>
 <button class="btn btn-ghost btn-block" id="btnAddExercise" style="margin-top:1rem;padding:1rem">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-    Oefening toevoegen
+    Add exercise
 </button>
 <?php endif; ?>
 
@@ -209,7 +200,7 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
 <div class="modal-backdrop" id="exerciseModal">
     <div class="modal">
         <div class="modal-header">
-            <h3>Oefening kiezen</h3>
+            <h3>Choose exercise</h3>
             <button class="btn-icon" onclick="closeExerciseModal()">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
@@ -218,19 +209,19 @@ $distUnit   = $unitSystem === 'imperial' ? 'mi'  : 'km';
             <div class="search-wrap">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                 <input type="search" class="form-input" id="exerciseSearch"
-                       placeholder="Zoek oefening of typ een naam...">
+                       placeholder="Search or type a custom name...">
             </div>
         </div>
         <div class="modal-body" id="exerciseResults">
             <div class="empty-state" style="padding:2rem">
-                <p>Typ om te zoeken of blader door de lijst.</p>
+                <p>Start typing to search the exercise library.</p>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-const WORKOUT_ID = <?= $workout['id'] ?>;
+const WORKOUT_ID  = <?= $workout['id'] ?>;
 const IS_FINISHED = <?= $workout['end_time'] ? 'true' : 'false' ?>;
 const START_TIME  = new Date(<?= json_encode($workout['start_time']) ?>);
 </script>

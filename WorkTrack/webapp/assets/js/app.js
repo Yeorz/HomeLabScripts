@@ -93,12 +93,12 @@ function initWorkoutPage() {
     const btnFinish = document.getElementById('btnFinish');
     if (btnFinish) {
         btnFinish.addEventListener('click', async () => {
-            if (!confirm('Workout afronden?')) return;
+            if (!confirm('Finish this workout?')) return;
             await apiFetch('/webapp/api/workouts.php?action=finish', {
                 method: 'POST',
                 body: JSON.stringify({ action: 'finish', id: WORKOUT_ID })
             });
-            showToast('Workout afgerond! 💪', 'success');
+            showToast('Workout finished! 💪', 'success');
             setTimeout(() => location.href = '/webapp/history.php', 1200);
         });
     }
@@ -117,7 +117,6 @@ function initWorkoutPage() {
             clearTimeout(searchTimer);
             searchTimer = setTimeout(() => searchExercises(searchInput.value), 250);
         });
-        // Load all on focus if empty
         searchInput.addEventListener('focus', () => {
             if (!searchInput.value) searchExercises('');
         });
@@ -210,7 +209,7 @@ function addSetRow(weId, btn, isWarmup = false) {
                    onchange="saveSet(${weId}, ${setNum}, this.closest('.set-row'))">
             <input class="set-input" type="number" step="0.01" placeholder="${dUnit}"
                    onchange="saveSet(${weId}, ${setNum}, this.closest('.set-row'))">
-            <button class="btn-icon" onclick="removeSet(${weId}, ${setNum}, this)" title="Verwijder set">
+            <button class="btn-icon" onclick="removeSet(${weId}, ${setNum}, this)" title="Remove set">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>`;
     } else {
@@ -231,7 +230,7 @@ function addSetRow(weId, btn, isWarmup = false) {
                    onchange="saveSet(${weId}, ${setNum}, this.closest('.set-row'))">
             <input class="set-input col-rpe" type="number" min="1" max="10" placeholder="RPE"
                    onchange="saveSet(${weId}, ${setNum}, this.closest('.set-row'))">
-            <button class="btn-icon" onclick="removeSet(${weId}, ${setNum}, this)" title="Verwijder set">
+            <button class="btn-icon" onclick="removeSet(${weId}, ${setNum}, this)" title="Remove set">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>`;
     }
@@ -303,7 +302,7 @@ function renumberSets(weId) {
 
 /* ── Remove exercise ────────────────────────────────────────── */
 async function removeExercise(weId) {
-    if (!confirm('Oefening verwijderen inclusief alle sets?')) return;
+    if (!confirm('Remove this exercise and all its sets?')) return;
     await apiFetch('/webapp/api/workouts.php?action=remove_exercise', {
         method: 'POST',
         body: JSON.stringify({ action: 'remove_exercise', we_id: weId })
@@ -334,7 +333,7 @@ async function searchExercises(q) {
     try {
         exercises = await fetch(url).then(r => r.json());
     } catch {
-        results.innerHTML = '<p class="text-muted text-sm" style="padding:1rem">Fout bij laden.</p>';
+        results.innerHTML = '<p class="text-muted text-sm" style="padding:1rem">Error loading exercises.</p>';
         return;
     }
 
@@ -342,10 +341,10 @@ async function searchExercises(q) {
         const escapedQ = escHtml(q);
         results.innerHTML = `
             <div style="padding:0.75rem">
-                <p class="text-muted text-sm" style="margin-bottom:0.75rem">Geen oefeningen gevonden.</p>
+                <p class="text-muted text-sm" style="margin-bottom:0.75rem">No exercises found.</p>
                 ${q ? `<button class="btn btn-ghost btn-sm btn-block"
                     onclick="addCustomExercise('${escapedQ.replace(/'/g,"\\'")}')">
-                    + "${escapedQ}" toevoegen als eigen oefening
+                    + Add "${escapedQ}" as custom exercise
                 </button>` : ''}
             </div>`;
         return;
@@ -386,7 +385,7 @@ async function searchExercises(q) {
         html += `<div style="padding:0.75rem;border-top:1px solid var(--border)">
             <button class="btn btn-ghost btn-sm btn-block"
                 onclick="addCustomExercise('${escHtml(q).replace(/'/g,"\\'")}')">
-                + "${escHtml(q)}" toevoegen als eigen oefening
+                + Add "${escHtml(q)}" as custom exercise
             </button></div>`;
     }
 
@@ -444,7 +443,7 @@ function appendExerciseBlock(ex) {
                 <div class="exercise-name">${escHtml(ex.name)}</div>
                 ${meta ? `<div class="exercise-meta">${escHtml(meta)}</div>` : ''}
             </div>
-            <button class="btn-icon" onclick="removeExercise(${ex.id})" title="Verwijder oefening">
+            <button class="btn-icon" onclick="removeExercise(${ex.id})" title="Remove exercise">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
             </button>
         </div>
@@ -452,15 +451,15 @@ function appendExerciseBlock(ex) {
             <div class="sets-header ${isCardio ? 'cardio-cols' : ''}">
                 <span>Set</span>
                 ${isCardio
-                    ? `<span>Tijd</span><span>Afstand (${dUnit})</span>`
-                    : `<span>Gewicht (${wUnit})</span><span>Reps</span><span class="col-rpe">RPE</span>`}
+                    ? `<span>Time</span><span>Distance (${dUnit})</span>`
+                    : `<span>Weight (${wUnit})</span><span>Reps</span><span class="col-rpe">RPE</span>`}
                 <span></span>
             </div>
         </div>
         <div class="set-footer">
-            <button class="btn btn-ghost btn-sm" onclick="addSetRow(${ex.id}, this)">+ Set toevoegen</button>
+            <button class="btn btn-ghost btn-sm" onclick="addSetRow(${ex.id}, this)">+ Add set</button>
             <button class="btn btn-sm" style="background:rgba(255,178,63,0.12);color:var(--warning);border:1px solid rgba(255,178,63,0.25)"
-                    onclick="addSetRow(${ex.id}, this, true)">+ Warming-up</button>
+                    onclick="addSetRow(${ex.id}, this, true)">+ Warm-up</button>
         </div>`;
 
     // Insert before the "Add exercise" button
