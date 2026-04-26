@@ -12,7 +12,7 @@ export default function App() {
 
   async function logWorkout(workout) {
     try {
-      const res = await fetch("http://localhost:3001/workouts", {
+      const res = await fetch("http://localhost:8080/workouts", {
         method: "POST",
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(workout)

@@ -1,0 +1,26 @@
+Options -Indexes
+RewriteEngine On
+
+# ── Mobile / watch API routing ──────────────────────────────────────────────
+# Maps the paths the apps expect to the PHP webapp API.
+
+# Auth endpoints
+RewriteRule ^auth/csrf-token/?$   /webapp/api/auth.php?action=csrf-token   [QSA,L]
+RewriteRule ^auth/login/?$        /webapp/api/auth.php?action=login         [QSA,L]
+RewriteRule ^auth/register/?$     /webapp/api/auth.php?action=register      [QSA,L]
+RewriteRule ^auth/session/?$      /webapp/api/auth.php?action=session       [QSA,L]
+RewriteRule ^auth/logout/?$       /webapp/api/auth.php?action=logout        [QSA,L]
+
+# iOS app uses /login and /register without the /auth/ prefix
+RewriteRule ^login/?$             /webapp/api/auth.php?action=login         [QSA,L]
+RewriteRule ^register/?$          /webapp/api/auth.php?action=register      [QSA,L]
+
+# Workout endpoints (mobile + watch)
+RewriteRule ^workouts/?$          /webapp/api/mobile.php?action=workouts    [QSA,L]
+
+# Analytics endpoints (web dashboard)
+RewriteRule ^analytics/summary/?$ /webapp/api/mobile.php?action=summary     [QSA,L]
+RewriteRule ^analytics/trends/?$  /webapp/api/mobile.php?action=trends      [QSA,L]
+
+# Public sharing
+RewriteRule ^public/([0-9]+)/?$   /webapp/api/mobile.php?action=public&userId=$1 [QSA,L]

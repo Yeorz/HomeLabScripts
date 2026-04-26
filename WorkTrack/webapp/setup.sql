@@ -1,5 +1,5 @@
 -- WorkTrack Database Setup
--- Voer uit als: mysql -u root -p < setup.sql
+-- Run as: mysql -u root -p < setup.sql
 
 CREATE DATABASE IF NOT EXISTS worktrack
   CHARACTER SET utf8mb4
@@ -237,15 +237,28 @@ INSERT INTO exercises (name_nl, name_en, muscle_group_id, category, equipment) V
     ('Zwemmen banen', 'Lap Swimming', 13, 'cardio', 'cardio'),
     ('Stepping machine', 'Stair Stepper', 13, 'cardio', 'cardio');
 
+-- Users — required for mobile / watch authentication
+CREATE TABLE IF NOT EXISTS users (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    email      VARCHAR(255) UNIQUE NOT NULL,
+    password   VARCHAR(255)        NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS workouts (
-    id          INT AUTO_INCREMENT PRIMARY KEY,
-    name        VARCHAR(200),
-    date        DATE     NOT NULL,
-    start_time  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    end_time    DATETIME,
-    notes       TEXT,
-    created_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    id               INT AUTO_INCREMENT PRIMARY KEY,
+    user_id          INT,                          -- NULL = created via web UI (single-user mode)
+    name             VARCHAR(200),
+    date             DATE     NOT NULL,
+    start_time       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    end_time         DATETIME,
+    workout_type     VARCHAR(50),                  -- Strength / Cardio / etc. (from mobile)
+    calories         INT,                          -- from mobile / watch
+    duration_seconds INT,                          -- from mobile / watch
+    notes            TEXT,
+    created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS workout_exercises (

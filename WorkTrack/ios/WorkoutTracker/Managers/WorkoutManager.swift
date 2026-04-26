@@ -5,7 +5,7 @@ class WorkoutManager: ObservableObject {
     @Published var pendingCount: Int = 0
     
     private let storage = WorkoutStorage()
-    private let apiBaseURL = "http://localhost:3001"
+    private let apiBaseURL = "http://localhost:8080"
     private var authToken: String?
     
     init(token: String? = nil) {

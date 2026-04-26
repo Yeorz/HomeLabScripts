@@ -3,9 +3,10 @@
   "displayName": "Workout Tracker",
   "organizationIdentifier": "com.example.workouttracker",
   "development": {
-    "apiBaseURL": "http://localhost:3001"
+    "apiBaseURL": "http://localhost:8080"
   },
   "production": {
-    "apiBaseURL": "https://api.workouttracker.com"
+    "apiBaseURL": "https://your-server.example.com"
   }
 }
+

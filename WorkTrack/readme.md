@@ -16,9 +16,9 @@ Self-hosted workout tracker with multiple frontends: a PHP web interface, a Node
 
 ---
 
-## PHP Web Interface (webapp/)
+## PHP Web Interface + Shared API (webapp/)
 
-The simplest way to log workouts — no Node.js or npm required. Runs on any standard LAMP/LEMP stack.
+The PHP webapp is the single backend for all clients — web, iOS, React Native, and Apple Watch. No Node.js or npm required for the backend. Runs on any standard LAMP/LEMP stack.
 
 ### Requirements
 
@@ -34,32 +34,42 @@ The simplest way to log workouts — no Node.js or npm required. Runs on any sta
 mysql -u root -p < webapp/setup.sql
 ```
 
-This creates the `worktrack` database and seeds 174 exercises across 13 muscle groups.
+This creates the `worktrack` database, a `users` table, and seeds 174 exercises across 13 muscle groups.
 
-**2. Configure the database connection**
+**Existing installation?** Run the migration instead:
+
+```bash
+mysql -u root -p worktrack < webapp/migrate.sql
+```
+
+**2. Configure the database connection and JWT secret**
 
 ```bash
 cp webapp/config.example.php webapp/config.php
 ```
 
-Edit `webapp/config.php` with your credentials:
+Edit `webapp/config.php`:
 
 ```php
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'worktrack');
-define('DB_USER', 'your_user');
-define('DB_PASS', 'your_password');
+define('DB_HOST',    'localhost');
+define('DB_NAME',    'worktrack');
+define('DB_USER',    'your_user');
+define('DB_PASS',    'your_password');
+
+// Generate once with: php -r "echo bin2hex(random_bytes(32));"
+define('JWT_SECRET', 'your_long_random_secret');
 ```
 
-**3. Point your web server at the project root**
-
-For local development with the built-in PHP server:
+**3. Start the server (development)**
 
 ```bash
-php -S localhost:8080 -t .
+php -S 0.0.0.0:8080 -t .
 ```
 
-Then open: `http://localhost:8080/webapp/`
+- Web interface: `http://localhost:8080/webapp/`
+- Mobile API base URL: `http://<your-LAN-IP>:8080`
+
+The root `.htaccess` routes all API paths (`/auth/*`, `/workouts`, `/analytics/*`, `/public/*`) directly to the PHP backend so the apps need no path changes.
 
 ### Features
 
@@ -69,13 +79,16 @@ Then open: `http://localhost:8080/webapp/`
 - **Exercise library** — 174 built-in exercises, add custom exercises
 - **Settings** — metric (kg/km) or imperial (lbs/miles), dark/light theme
 - **No npm or Composer required** — pure PHP + vanilla JS
+- **Shared API** — JWT-authenticated REST endpoints compatible with iOS, React Native, and Apple Watch
 
 ### File structure
 
 ```
+.htaccess                   Routes /auth/*, /workouts, /analytics/*, /public/* to PHP API
 webapp/
-├── setup.sql               Database schema + 174 exercises
-├── config.php              Database credentials (git-ignored)
+├── setup.sql               Database schema + 174 exercises + users table
+├── migrate.sql             Migration for existing installations
+├── config.php              Database credentials + JWT secret (git-ignored)
 ├── config.example.php      Example config
 ├── index.php               Dashboard
 ├── workout.php             Log a workout
@@ -86,11 +99,14 @@ webapp/
 ├── includes/
 │   ├── db.php              PDO database connection
 │   ├── functions.php       Helper functions (units, formatting)
+│   ├── auth.php            JWT encode/decode, CORS, requireAuth()
 │   ├── header.php          Navigation + HTML head
 │   └── footer.php          Scripts + HTML close
 ├── api/
-│   ├── workouts.php        REST API for workouts and sets
-│   ├── exercises.php       REST API for exercises
+│   ├── auth.php            POST /login, /register  GET /session  POST /logout
+│   ├── mobile.php          POST /workouts  GET /analytics/*  GET /public/:id
+│   ├── workouts.php        Detailed workout CRUD (web UI)
+│   ├── exercises.php       Exercise search/CRUD (web UI)
 │   └── import.php          Bulk import API endpoint
 ├── data/
 │   └── exercises.php       Full exercise dataset (174 entries)
@@ -98,6 +114,22 @@ webapp/
     ├── css/style.css       Stylesheet (dark theme)
     └── js/app.js           Vanilla JavaScript
 ```
+
+### API endpoints (consumed by mobile/watch)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `GET` | `/auth/csrf-token` | — | Get CSRF token |
+| `POST` | `/auth/register` | — | Register user → `{token, user}` |
+| `POST` | `/auth/login` | — | Login → `{token, user}` |
+| `POST` | `/login` | — | iOS alias for `/auth/login` |
+| `POST` | `/register` | — | iOS alias for `/auth/register` |
+| `GET` | `/auth/session` | Bearer/cookie | Get current user |
+| `POST` | `/auth/logout` | — | Clear session |
+| `POST` | `/workouts` | Bearer | Log workout `{type, duration, calories, segments?}` |
+| `GET` | `/analytics/summary` | Bearer | Workout summary by type |
+| `GET` | `/analytics/trends` | Bearer | 30-day daily trends |
+| `GET` | `/public/:userId` | — | Public workout data (90 days) |
 
 ---
 
@@ -172,7 +204,32 @@ Scan the QR code with the Expo Go app (Android/iOS). Requires the backend runnin
 2. Ensure `ExerciseClassifier.mlmodel` is included in the Watch target
 3. Build and run on your paired Apple Watch
 
-The Watch app uses **CoreML** for motion classification and syncs results to the backend automatically.
+The Watch app uses **CoreML** for motion classification. After the user confirms the detected exercise in `WorkoutConfirmationView`, `WatchSyncManager` posts the workout (type, duration, classified segments) to `POST /workouts`.
+
+### Token sharing (required for sync)
+
+The Watch reads the JWT from a shared App Group UserDefaults (`group.com.example.workouttracker`). To enable this:
+
+1. In Xcode, add the **App Groups** capability to both the iOS app target and the Watch target
+2. Use the same group identifier: `group.com.example.workouttracker`
+3. In the iOS `AuthManager`, write the token to the shared suite on login:
+
+```swift
+UserDefaults(suiteName: "group.com.example.workouttracker")?
+    .set(loginResponse.token, forKey: "jwt_token")
+```
+
+Without this setup the sync is silently skipped; workouts are still recorded locally on the Watch.
+
+### Server address for Watch
+
+Edit `watch/WatchSyncManager.swift` and set `baseURL` to your server's LAN IP:
+
+```swift
+private let baseURL = "http://192.168.1.x:8080"
+```
+
+Localhost does not work on a physical Watch — it must be the Mac's network IP.
 
 ---
 

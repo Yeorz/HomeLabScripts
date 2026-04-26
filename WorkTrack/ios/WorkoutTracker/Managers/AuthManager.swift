@@ -8,7 +8,7 @@ class AuthManager: ObservableObject {
     
     private let tokenKey = "jwt_token"
     private let userIdKey = "user_id"
-    private let apiBaseURL = "http://localhost:3001"
+    private let apiBaseURL = "http://localhost:8080"
     
     init() {
         // Restore token from keychain/defaults on app launch

@@ -70,7 +70,7 @@ export async function syncPendingWorkouts() {
     const remaining = [];
     for (let workout of existing) {
       try {
-        const res = await fetch("http://localhost:3001/workouts", {
+        const res = await fetch("http://localhost:8080/workouts", {
           method: "POST",
           headers: {
             'Content-Type': 'application/json',
