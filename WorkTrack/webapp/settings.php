@@ -4,6 +4,11 @@ $activePage = 'settings';
 require_once __DIR__ . '/includes/header.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrfToken = $_POST['_csrf'] ?? '';
+    if (!csrfVerify($csrfToken)) {
+        http_response_code(403);
+        exit('Invalid CSRF token');
+    }
     $unit  = in_array($_POST['unit_system'] ?? '', ['metric', 'imperial']) ? $_POST['unit_system'] : 'metric';
     $theme = in_array($_POST['theme']       ?? '', ['dark', 'light'])      ? $_POST['theme']       : 'dark';
     updateSettings($unit, $theme);
@@ -77,17 +82,23 @@ $saved = isset($_GET['saved']);
                 <div class="settings-row-sub">MariaDB / MySQL</div>
             </div>
             <?php
-            try {
-                $version = getDB()->query('SELECT VERSION()')->fetchColumn();
-                echo '<span class="badge badge-accent">' . h($version) . '</span>';
-            } catch (Exception $e) {
-                echo '<span class="badge badge-danger">Connection failed</span>';
+            // Only show version to authenticated users to avoid unnecessary info disclosure
+            if (getAuthUser()) {
+                try {
+                    $version = getDB()->query('SELECT VERSION()')->fetchColumn();
+                    echo '<span class="badge badge-accent">' . h($version) . '</span>';
+                } catch (Exception $e) {
+                    echo '<span class="badge badge-danger">Connection failed</span>';
+                }
+            } else {
+                echo '<span class="badge badge-muted">MariaDB</span>';
             }
             ?>
         </div>
     </div>
 
-    <input type="hidden" name="theme" id="themeValue" value="<?= h($settings['theme']) ?>">
+    <input type="hidden" name="theme"  id="themeValue" value="<?= h($settings['theme']) ?>">
+    <input type="hidden" name="_csrf" value="<?= h(csrfGenerate()) ?>">
     <button type="submit" id="realSubmit" style="display:none"></button>
 </form>
 

@@ -1,12 +1,15 @@
 <?php
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/functions.php';
+require_once __DIR__ . '/includes/auth.php';
 
-$pdo = getDB();
+$pdo    = getDB();
+$webUser = getAuthUser();
 
 if (!isset($_GET['id'])) {
-    $stmt = $pdo->prepare('INSERT INTO workouts (name, date, start_time) VALUES (NULL, CURDATE(), NOW())');
-    $stmt->execute();
+    $userId = $webUser ? (int)$webUser['id'] : null;
+    $stmt   = $pdo->prepare('INSERT INTO workouts (user_id, name, date, start_time) VALUES (?, NULL, CURDATE(), NOW())');
+    $stmt->execute([$userId]);
     $id = $pdo->lastInsertId();
     header("Location: /webapp/workout.php?id=$id");
     exit;

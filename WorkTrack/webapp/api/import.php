@@ -1,19 +1,23 @@
 <?php
 require_once dirname(__DIR__) . '/includes/db.php';
 require_once dirname(__DIR__) . '/includes/functions.php';
+require_once dirname(__DIR__) . '/includes/auth.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') jsonError('POST required', 405);
 
+// Require CSRF (browser) or Bearer (mobile) — prevents unauthorised bulk inserts
+requireCsrfOrBearer();
+
 $body  = json_decode(file_get_contents('php://input'), true);
 $items = $body['exercises'] ?? [];
 if (!is_array($items) || empty($items)) jsonError('No exercises received');
+if (count($items) > 500) jsonError('Batch too large (max 500)');
 
 $pdo = getDB();
 
-// Build lookup: both name_en and name_nl → id (for flexible matching)
 $stmt   = $pdo->query('SELECT id, name_nl, name_en FROM muscle_groups');
 $groups = [];
 foreach ($stmt->fetchAll() as $row) {
@@ -21,7 +25,6 @@ foreach ($stmt->fetchAll() as $row) {
     if ($row['name_en']) $groups[mb_strtolower($row['name_en'])] = (int)$row['id'];
 }
 
-// Existing exercises by name_en and name_nl (lowercase) to detect duplicates
 $stmt     = $pdo->query('SELECT LOWER(name_nl) AS nl, LOWER(COALESCE(name_en, \'\')) AS en FROM exercises');
 $existing = [];
 foreach ($stmt->fetchAll() as $row) {
@@ -42,11 +45,11 @@ $stmt = $pdo->prepare('
 ');
 
 foreach ($items as $i => $item) {
-    $nameEn = trim($item['name_en'] ?? $item['name_nl'] ?? '');
-    $nameNl = trim($item['name_nl'] ?? $nameEn);
+    $nameEn = trim(substr($item['name_en'] ?? $item['name_nl'] ?? '', 0, 200));
+    $nameNl = trim(substr($item['name_nl'] ?? $nameEn, 0, 200));
     $grpKey = mb_strtolower(trim($item['spiergroep'] ?? $item['muscle_group'] ?? ''));
-    $cat    = in_array($item['categorie'] ?? $item['category'] ?? '', $allowedCats)  ? ($item['categorie'] ?? $item['category']) : 'kracht';
-    $equip  = in_array($item['materiaal'] ?? $item['equipment'] ?? '', $allowedEquip) ? ($item['materiaal'] ?? $item['equipment']) : 'overig';
+    $cat    = in_array($item['categorie']  ?? $item['category']  ?? '', $allowedCats)  ? ($item['categorie']  ?? $item['category'])  : 'kracht';
+    $equip  = in_array($item['materiaal']  ?? $item['equipment'] ?? '', $allowedEquip) ? ($item['materiaal']  ?? $item['equipment']) : 'overig';
 
     if ($nameEn === '' && $nameNl === '') {
         $errors[] = "Row $i: name is missing";
@@ -66,12 +69,10 @@ foreach ($items as $i => $item) {
         $inserted++;
         $existing[$key] = true;
     } catch (PDOException $e) {
-        $errors[] = "Row $i ($nameEn): " . $e->getMessage();
+        // Do not expose raw DB error to client — log internally instead
+        error_log("import.php row $i: " . $e->getMessage());
+        $errors[] = "Row $i: could not save exercise";
     }
 }
 
-jsonResponse([
-    'inserted' => $inserted,
-    'skipped'  => $skipped,
-    'errors'   => $errors,
-]);
+jsonResponse(['inserted' => $inserted, 'skipped' => $skipped, 'errors' => $errors]);

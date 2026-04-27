@@ -237,12 +237,16 @@ INSERT INTO exercises (name_nl, name_en, muscle_group_id, category, equipment) V
     ('Zwemmen banen', 'Lap Swimming', 13, 'cardio', 'cardio'),
     ('Stepping machine', 'Stair Stepper', 13, 'cardio', 'cardio');
 
--- Users — required for mobile / watch authentication
+-- Users — required for mobile / watch authentication and web sign-in
 CREATE TABLE IF NOT EXISTS users (
-    id         INT AUTO_INCREMENT PRIMARY KEY,
-    email      VARCHAR(255) UNIQUE NOT NULL,
-    password   VARCHAR(255)        NOT NULL,
-    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id             INT AUTO_INCREMENT PRIMARY KEY,
+    email          VARCHAR(255) UNIQUE,       -- nullable: Apple private relay may change it
+    name           VARCHAR(200),
+    password       VARCHAR(255),              -- NULL for OAuth-only users
+    oauth_provider VARCHAR(20),               -- 'google' | 'facebook' | 'apple'
+    oauth_id       VARCHAR(255),              -- provider's stable user identifier
+    created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY idx_oauth (oauth_provider, oauth_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS workouts (

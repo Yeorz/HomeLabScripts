@@ -184,7 +184,7 @@ async function deleteWorkout(id, btn) {
     btn.disabled = true;
     await fetch('/webapp/api/workouts.php?action=delete', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN},
         body: JSON.stringify({action: 'delete', id})
     });
     btn.closest('.workout-item').remove();

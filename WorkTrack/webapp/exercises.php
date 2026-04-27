@@ -202,7 +202,7 @@ async function saveNewExercise() {
 
     const res  = await fetch('/webapp/api/exercises.php?action=create', {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': CSRF_TOKEN},
         body: JSON.stringify({
             name_en:         name,
             muscle_group_id: document.getElementById('newGroup').value || null,

@@ -1,6 +1,8 @@
 /* WorkTrack — app.js */
 'use strict';
 
+const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.content ?? '';
+
 /* ── Utilities ─────────────────────────────────────────────── */
 function escHtml(str) {
     const d = document.createElement('div');
@@ -37,12 +39,17 @@ function parseDuration(str) {
 
 async function apiFetch(url, opts = {}) {
     try {
-        const res  = await fetch(url, { headers: {'Content-Type': 'application/json'}, ...opts });
+        const headers = {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': CSRF_TOKEN,
+            ...(opts.headers ?? {}),
+        };
+        const res  = await fetch(url, { ...opts, headers });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
         return data;
     } catch (err) {
-        showToast(err.message || 'Netwerk fout', 'error');
+        showToast(err.message || 'Network error', 'error');
         throw err;
     }
 }
