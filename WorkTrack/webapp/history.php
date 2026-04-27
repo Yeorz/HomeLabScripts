@@ -17,7 +17,7 @@ $stmt = $pdo->query('
     GROUP BY w.id
     ORDER BY w.date DESC, w.start_time DESC
 ');
-$allWorkouts = $stmt->fetchAll();
+$allWorkouts = decryptRows($stmt->fetchAll(), ['name', 'notes']);
 
 $months      = ['', 'January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];

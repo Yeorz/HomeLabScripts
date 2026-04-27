@@ -2,6 +2,7 @@
 require_once dirname(__DIR__) . '/includes/db.php';
 require_once dirname(__DIR__) . '/includes/functions.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
+require_once dirname(__DIR__) . '/includes/crypto.php';
 
 setCORSHeaders();
 header('Content-Type: application/json; charset=utf-8');
@@ -26,21 +27,23 @@ switch ($action) {
     case 'register':
         if ($method !== 'POST') jsonError('POST required', 405);
 
-        $email    = trim($body['email'] ?? '');
+        $email    = mb_strtolower(trim($body['email']    ?? ''));
         $password = $body['password'] ?? '';
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) jsonError('Invalid email address');
-        if (strlen($email) > 254) jsonError('Invalid email address');
+        if (strlen($email) > 254)   jsonError('Invalid email address');
         if (strlen($password) < 10) jsonError('Password must be at least 10 characters');
         if (strlen($password) > 1024) jsonError('Password too long');
 
-        $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-        $stmt->execute([$email]);
+        // Duplicate check via blind index — no plaintext email in the WHERE clause
+        $emailHash = searchHash($email);
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE email_hash = ?');
+        $stmt->execute([$emailHash]);
         if ($stmt->fetchColumn()) jsonError('Email already registered', 409);
 
         $hash   = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-        $stmt   = $pdo->prepare('INSERT INTO users (email, password) VALUES (?, ?)');
-        $stmt->execute([$email, $hash]);
+        $stmt   = $pdo->prepare('INSERT INTO users (email, email_hash, password) VALUES (?, ?, ?)');
+        $stmt->execute([encryptField($email), $emailHash, $hash]);
         $userId = (int)$pdo->lastInsertId();
 
         $token = issueToken($userId);
@@ -51,30 +54,28 @@ switch ($action) {
     case 'login':
         if ($method !== 'POST') jsonError('POST required', 405);
 
-        $email    = trim($body['email'] ?? '');
+        $email    = mb_strtolower(trim($body['email']    ?? ''));
         $password = $body['password'] ?? '';
 
         if (strlen($email) > 254 || strlen($password) > 1024) {
-            // Avoid bcrypt with very long passwords; respond with generic error
             jsonError('Invalid credentials', 401);
         }
 
-        $stmt = $pdo->prepare('SELECT id, email, password FROM users WHERE email = ?');
-        $stmt->execute([$email]);
+        // Lookup via blind index
+        $emailHash = searchHash($email);
+        $stmt = $pdo->prepare('SELECT id, password FROM users WHERE email_hash = ?');
+        $stmt->execute([$emailHash]);
         $user = $stmt->fetch();
 
-        // Always run password_verify even on no-result to prevent timing-based enumeration
-        $dummyHash = '$2y$12$invalidhashfortimingnormalization000000000000000000000';
-        $hash      = $user['password'] ?? $dummyHash;
-        $valid     = password_verify($password, $hash);
+        $dummy = '$2y$12$invalidhashfortimingnormalization000000000000000000000';
+        $hash  = $user['password'] ?? $dummy;
+        $valid = password_verify($password, $hash);
 
-        if (!$user || !$valid) {
-            jsonError('Invalid credentials', 401);
-        }
+        if (!$user || !$valid) jsonError('Invalid credentials', 401);
 
         $token = issueToken((int)$user['id']);
         setAuthCookie($token);
-        jsonResponse(['token' => $token, 'user' => ['id' => (int)$user['id'], 'email' => $user['email']]]);
+        jsonResponse(['token' => $token, 'user' => ['id' => (int)$user['id'], 'email' => $email]]);
         break;
 
     case 'session':
@@ -82,10 +83,16 @@ switch ($action) {
         if (!$payload) {
             jsonResponse(['user' => null], 401);
         }
-        $stmt = $pdo->prepare('SELECT id, email FROM users WHERE id = ?');
+        $stmt = $pdo->prepare('SELECT id, email, name FROM users WHERE id = ?');
         $stmt->execute([$payload['id']]);
-        $user = $stmt->fetch();
-        jsonResponse(['user' => $user ?: null]);
+        $row = $stmt->fetch();
+        if (!$row) jsonResponse(['user' => null], 401);
+
+        jsonResponse(['user' => [
+            'id'    => (int)$row['id'],
+            'email' => df($row['email']),
+            'name'  => df($row['name']),
+        ]]);
         break;
 
     case 'logout':

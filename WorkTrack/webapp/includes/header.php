@@ -17,7 +17,9 @@ if ($_navUser) {
     $s->execute([$_navUser['id']]);
     $_navDbUser = $s->fetch() ?: null;
 }
-$_navLabel    = $_navDbUser['name'] ?: ($_navDbUser['email'] ? explode('@', $_navDbUser['email'])[0] : 'Account');
+$_decName  = df($_navDbUser['name']  ?? null);
+$_decEmail = df($_navDbUser['email'] ?? null);
+$_navLabel = $_decName ?: ($_decEmail ? explode('@', $_decEmail)[0] : 'Account');
 $_navInitials = strtoupper(mb_substr($_navLabel, 0, 2));
 $_currentUrl  = '/webapp' . ($_SERVER['REQUEST_URI'] ?? '/');
 ?><!DOCTYPE html>

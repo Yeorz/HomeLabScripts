@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/crypto.php';
+
 function getSettings(): array {
     $pdo  = getDB();
     $stmt = $pdo->query('SELECT * FROM settings WHERE id = 1');
@@ -85,10 +87,17 @@ function getWorkoutWithExercises(int $workoutId): ?array {
     $workout = $stmt->fetch();
     if (!$workout) return null;
 
+    // Decrypt workout-level fields
+    $workout['name']  = df($workout['name']  ?? null);
+    $workout['notes'] = df($workout['notes'] ?? null);
+
+    // Fetch exercises — custom_name is encrypted; library names (name_en/nl) are not
     $stmt = $pdo->prepare('
-        SELECT we.id, we.order_index, we.notes AS we_notes,
-               e.id AS exercise_id,
-               COALESCE(we.custom_name, e.name_en, e.name_nl) AS name,
+        SELECT we.id, we.order_index,
+               we.custom_name,
+               we.notes AS we_notes,
+               e.id     AS exercise_id,
+               e.name_en, e.name_nl,
                e.category, e.equipment,
                mg.name_en AS muscle_group
         FROM workout_exercises we
@@ -101,9 +110,22 @@ function getWorkoutWithExercises(int $workoutId): ?array {
     $wes = $stmt->fetchAll();
 
     foreach ($wes as &$we) {
+        // Resolve display name: decrypt custom_name or fall back to plain library name
+        $we['name'] = $we['custom_name']
+            ? (df($we['custom_name']) ?: 'Custom exercise')
+            : ($we['name_en'] ?? $we['name_nl'] ?? 'Unknown');
+        unset($we['custom_name'], $we['name_en'], $we['name_nl']);
+
+        $we['we_notes'] = df($we['we_notes'] ?? null);
+
+        // Fetch and decrypt set notes
         $s = $pdo->prepare('SELECT * FROM sets WHERE workout_exercise_id = ? ORDER BY set_number');
         $s->execute([$we['id']]);
-        $we['sets'] = $s->fetchAll();
+        $sets = $s->fetchAll();
+        foreach ($sets as &$set) {
+            $set['notes'] = df($set['notes'] ?? null);
+        }
+        $we['sets'] = $sets;
     }
 
     $workout['exercises'] = $wes;

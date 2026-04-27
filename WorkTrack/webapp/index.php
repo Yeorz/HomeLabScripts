@@ -28,7 +28,7 @@ $stmtRecent = $pdo->query('
     ORDER BY w.date DESC, w.start_time DESC
     LIMIT 7
 ');
-$recentWorkouts = $stmtRecent->fetchAll();
+$recentWorkouts = decryptRows($stmtRecent->fetchAll(), ['name', 'notes']);
 
 $monthsShort = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 ?>

@@ -18,6 +18,17 @@ define('APP_URL', 'http://localhost:8080');
 // Generate: php -r "echo bin2hex(random_bytes(32));"
 define('JWT_SECRET', 'CHANGE_THIS_generate_with_php_r_echo_bin2hex_random_bytes_32');
 
+// ── Field-level encryption ────────────────────────────────────────────────
+// AES-256-GCM key — encrypts email, name, workout names, notes in the DB.
+// A database dump without this key is unreadable. Keep it OUT of the DB.
+// Generate: php -r "echo bin2hex(random_bytes(32));"
+define('APP_ENCRYPTION_KEY', 'CHANGE_THIS_generate_with_php_r_echo_bin2hex_random_bytes_32');
+
+// HMAC blind-index key — used ONLY for equality lookups (email_hash, oauth_search).
+// Must be different from APP_ENCRYPTION_KEY.
+// Generate: php -r "echo bin2hex(random_bytes(32));"
+define('APP_SEARCH_KEY', 'CHANGE_THIS_generate_with_php_r_echo_bin2hex_random_bytes_32');
+
 // Allowed browser origins for the CORS policy.
 define('ALLOWED_ORIGINS', [
     'http://localhost:8080',

@@ -2,6 +2,7 @@
 require_once dirname(__DIR__) . '/includes/db.php';
 require_once dirname(__DIR__) . '/includes/functions.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
+require_once dirname(__DIR__) . '/includes/crypto.php';
 require_once dirname(__DIR__) . '/includes/oauth.php';
 
 // Already signed in — go straight to the dashboard
@@ -33,14 +34,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
             } elseif ($password !== $confirm) {
                 $error = 'Passwords do not match.';
             } else {
-                $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-                $stmt->execute([$email]);
+                $emailHash = searchHash($email);
+                $stmt = $pdo->prepare('SELECT id FROM users WHERE email_hash = ?');
+                $stmt->execute([$emailHash]);
                 if ($stmt->fetchColumn()) {
                     $error = 'An account with this email already exists.';
                 } else {
                     $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
-                    $stmt = $pdo->prepare('INSERT INTO users (email, password) VALUES (?, ?)');
-                    $stmt->execute([$email, $hash]);
+                    $stmt = $pdo->prepare('INSERT INTO users (email, email_hash, password) VALUES (?, ?, ?)');
+                    $stmt->execute([encryptField($email), $emailHash, $hash]);
                     $userId = (int)$pdo->lastInsertId();
                     setAuthCookie(issueToken($userId));
                     header('Location: ' . ($redirect ?: '/webapp/'));
@@ -52,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['email'])) {
             if (strlen($email) > 254 || strlen($password) > 1024) {
                 $error = 'Invalid credentials.';
             } else {
-                $stmt = $pdo->prepare('SELECT id, password FROM users WHERE email = ?');
-                $stmt->execute([$email]);
+                $stmt = $pdo->prepare('SELECT id, password FROM users WHERE email_hash = ?');
+                $stmt->execute([searchHash($email)]);
                 $user = $stmt->fetch();
                 $dummy = '$2y$12$invalidhashfortimingnormalization000000000000000000000';
                 $hash  = $user['password'] ?? $dummy;

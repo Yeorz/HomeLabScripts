@@ -2,6 +2,7 @@
 require_once dirname(__DIR__) . '/includes/db.php';
 require_once dirname(__DIR__) . '/includes/functions.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
+require_once dirname(__DIR__) . '/includes/crypto.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -43,9 +44,11 @@ switch ($action) {
             ORDER BY w.date DESC, w.start_time DESC
             LIMIT ? OFFSET ?
         ');
-        $uid = $user ? (int)$user['id'] : null;
+        $uid  = $user ? (int)$user['id'] : null;
         $stmt->execute([$uid, $uid, $uid, $limit, $offset]);
-        jsonResponse($stmt->fetchAll());
+        $rows = $stmt->fetchAll();
+        $rows = decryptRows($rows, ['name', 'notes']);
+        jsonResponse($rows);
         break;
 
     case 'get':
@@ -70,11 +73,13 @@ switch ($action) {
         $user   = getAuthUser();
         $userId = $user ? (int)$user['id'] : null;
         $stmt   = $pdo->prepare('INSERT INTO workouts (user_id, name, date, start_time) VALUES (?, ?, ?, NOW())');
-        $stmt->execute([$userId, $name ?: null, $date]);
+        $stmt->execute([$userId, $name ? encryptField($name) : null, $date]);
         $id   = (int)$pdo->lastInsertId();
         $stmt = $pdo->prepare('SELECT * FROM workouts WHERE id = ?');
         $stmt->execute([$id]);
-        jsonResponse($stmt->fetch());
+        $row = $stmt->fetch();
+        $row = decryptRow($row, ['name', 'notes']);
+        jsonResponse($row);
         break;
 
     case 'update':
@@ -84,8 +89,8 @@ switch ($action) {
         assertWorkoutAccess($pdo, $id);
         $fields = [];
         $params = [];
-        if (array_key_exists('name', $body))  { $fields[] = 'name = ?';  $params[] = trim(substr($body['name']  ?? '', 0, 200)) ?: null; }
-        if (array_key_exists('notes', $body)) { $fields[] = 'notes = ?'; $params[] = trim(substr($body['notes'] ?? '', 0, 2000)) ?: null; }
+        if (array_key_exists('name', $body))  { $n = trim(substr($body['name']  ?? '', 0, 200));  $fields[] = 'name = ?';  $params[] = $n ? encryptField($n) : null; }
+        if (array_key_exists('notes', $body)) { $n = trim(substr($body['notes'] ?? '', 0, 2000)); $fields[] = 'notes = ?'; $params[] = $n ? encryptField($n) : null; }
         if (!$fields) jsonError('Nothing to update');
         $params[] = $id;
         $pdo->prepare('UPDATE workouts SET ' . implode(', ', $fields) . ' WHERE id = ?')->execute($params);
@@ -124,13 +129,13 @@ switch ($action) {
         $next = (int)($stmt->fetchColumn() ?? -1) + 1;
 
         $stmt = $pdo->prepare('INSERT INTO workout_exercises (workout_id, exercise_id, custom_name, order_index) VALUES (?, ?, ?, ?)');
-        $stmt->execute([$workoutId, $exerciseId, $customName ?: null, $next]);
+        $stmt->execute([$workoutId, $exerciseId, $customName ? encryptField($customName) : null, $next]);
         $weId = (int)$pdo->lastInsertId();
 
+        // Fetch exercise info — decrypt custom_name separately from library names (never encrypted)
         $stmt = $pdo->prepare('
-            SELECT we.id, we.order_index,
-                   COALESCE(we.custom_name, e.name_en, e.name_nl) AS name,
-                   e.category, e.equipment,
+            SELECT we.id, we.order_index, we.custom_name,
+                   e.name_en, e.name_nl, e.category, e.equipment,
                    mg.name_en AS muscle_group
             FROM workout_exercises we
             LEFT JOIN exercises e      ON e.id  = we.exercise_id
@@ -138,7 +143,12 @@ switch ($action) {
             WHERE we.id = ?
         ');
         $stmt->execute([$weId]);
-        jsonResponse($stmt->fetch());
+        $row = $stmt->fetch();
+        $row['name'] = $row['custom_name']
+            ? (df($row['custom_name']) ?: 'Custom exercise')
+            : ($row['name_en'] ?? $row['name_nl'] ?? 'Unknown');
+        unset($row['custom_name'], $row['name_en'], $row['name_nl']);
+        jsonResponse($row);
         break;
 
     case 'remove_exercise':

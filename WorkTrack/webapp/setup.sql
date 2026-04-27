@@ -238,28 +238,32 @@ INSERT INTO exercises (name_nl, name_en, muscle_group_id, category, equipment) V
     ('Stepping machine', 'Stair Stepper', 13, 'cardio', 'cardio');
 
 -- Users — required for mobile / watch authentication and web sign-in
+-- email, name, oauth_id are stored AES-256-GCM encrypted.
+-- email_hash and oauth_search are HMAC blind indexes for WHERE lookups.
 CREATE TABLE IF NOT EXISTS users (
     id             INT AUTO_INCREMENT PRIMARY KEY,
-    email          VARCHAR(255) UNIQUE,       -- nullable: Apple private relay may change it
-    name           VARCHAR(200),
-    password       VARCHAR(255),              -- NULL for OAuth-only users
-    oauth_provider VARCHAR(20),               -- 'google' | 'facebook' | 'apple'
-    oauth_id       VARCHAR(255),              -- provider's stable user identifier
+    email          TEXT,                      -- encrypted; use email_hash for lookups
+    email_hash     VARCHAR(64) UNIQUE,        -- searchHash(email) — for login/register checks
+    name           TEXT,                      -- encrypted
+    password       VARCHAR(255),              -- bcrypt hash; NULL for OAuth-only users
+    oauth_provider VARCHAR(20),               -- plain: 'google' | 'facebook' | 'apple'
+    oauth_id       TEXT,                      -- encrypted provider user ID
+    oauth_search   VARCHAR(64),               -- searchHash(provider:oauth_id) — for OAuth lookups
     created_at     TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY idx_oauth (oauth_provider, oauth_id)
+    UNIQUE KEY idx_oauth_search (oauth_search)
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS workouts (
     id               INT AUTO_INCREMENT PRIMARY KEY,
-    user_id          INT,                          -- NULL = created via web UI (single-user mode)
-    name             VARCHAR(200),
-    date             DATE     NOT NULL,
+    user_id          INT,
+    name             TEXT,                         -- encrypted
+    date             DATE     NOT NULL,            -- plain: needed for time-range queries
     start_time       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     end_time         DATETIME,
-    workout_type     VARCHAR(50),                  -- Strength / Cardio / etc. (from mobile)
-    calories         INT,                          -- from mobile / watch
-    duration_seconds INT,                          -- from mobile / watch
-    notes            TEXT,
+    workout_type     VARCHAR(50),                  -- plain enum-like value
+    calories         INT,                          -- plain: needed for analytics aggregations
+    duration_seconds INT,                          -- plain: needed for analytics
+    notes            TEXT,                         -- encrypted
     created_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
@@ -269,9 +273,9 @@ CREATE TABLE IF NOT EXISTS workout_exercises (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     workout_id   INT NOT NULL,
     exercise_id  INT,
-    custom_name  VARCHAR(200),
+    custom_name  TEXT,                       -- encrypted
     order_index  INT NOT NULL DEFAULT 0,
-    notes        TEXT,
+    notes        TEXT,                       -- encrypted
     FOREIGN KEY (workout_id)  REFERENCES workouts(id)  ON DELETE CASCADE,
     FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
@@ -280,12 +284,12 @@ CREATE TABLE IF NOT EXISTS sets (
     id                   INT AUTO_INCREMENT PRIMARY KEY,
     workout_exercise_id  INT NOT NULL,
     set_number           INT NOT NULL,
-    weight_kg            DECIMAL(6,2),
-    reps                 INT,
-    duration_seconds     INT,
-    distance_km          DECIMAL(8,3),
-    rpe                  TINYINT,
+    weight_kg            DECIMAL(6,2),       -- plain: needed for volume calculations
+    reps                 INT,                -- plain: needed for volume calculations
+    duration_seconds     INT,                -- plain: needed for cardio analytics
+    distance_km          DECIMAL(8,3),       -- plain: needed for cardio analytics
+    rpe                  TINYINT,            -- plain: low-sensitivity numeric
     is_warmup            TINYINT(1) NOT NULL DEFAULT 0,
-    notes                VARCHAR(255),
+    notes                TEXT,               -- encrypted (was VARCHAR(255))
     FOREIGN KEY (workout_exercise_id) REFERENCES workout_exercises(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

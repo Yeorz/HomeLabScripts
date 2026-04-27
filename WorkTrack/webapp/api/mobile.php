@@ -7,6 +7,7 @@
 require_once dirname(__DIR__) . '/includes/db.php';
 require_once dirname(__DIR__) . '/includes/functions.php';
 require_once dirname(__DIR__) . '/includes/auth.php';
+require_once dirname(__DIR__) . '/includes/crypto.php';
 
 setCORSHeaders();
 header('Content-Type: application/json; charset=utf-8');
@@ -73,7 +74,7 @@ switch ($action) {
             $type,
             $calories ?: null,
             $duration ?: null,
-            $notes,
+            $notes ? encryptField($notes) : null,
         ]);
 
         jsonResponse(['id' => (int)$pdo->lastInsertId(), 'ok' => true]);

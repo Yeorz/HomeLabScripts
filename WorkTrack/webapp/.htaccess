@@ -1,10 +1,10 @@
 Options -Indexes
 
-# Block direct access to config
-<Files "config.php">
+# Block direct access to sensitive files
+<FilesMatch "^(config\.php|migrate_encrypt\.php)$">
     Order deny,allow
     Deny from all
-</Files>
+</FilesMatch>
 
 php_flag short_open_tag Off
 
