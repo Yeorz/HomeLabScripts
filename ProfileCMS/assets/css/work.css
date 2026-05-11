@@ -1,0 +1,95 @@
+/* ── Work section — Matrix / green theme ─────────────────────────────────── */
+:root {
+    --accent:     #00ff41;
+    --accent-dim: rgba(0, 255, 65, 0.08);
+    --bg:         #050905;
+    --bg-surface: #0a120a;
+    --bg-elevated:#0f1a0f;
+    --border:     #1a2e1a;
+    --text:       #ccffd0;
+    --text-muted: #4d7a52;
+}
+
+/* Scanline overlay */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        rgba(0, 0, 0, 0.07) 2px,
+        rgba(0, 0, 0, 0.07) 4px
+    );
+}
+
+/* Nav accent */
+.site-nav { border-bottom-color: #1a2e1a; }
+.nav-link.active, .nav-link:hover { color: #00ff41; background: rgba(0,255,65,0.06); }
+.nav-brand { color: #00ff41; font-family: var(--mono); }
+
+/* Matrix header canvas area */
+.matrix-header {
+    position: relative;
+    height: 220px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+}
+#matrix-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.35;
+}
+.matrix-header-content {
+    position: relative;
+    z-index: 1;
+    padding: 0 1.5rem;
+}
+.matrix-header-content h1 {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 6vw, 3.5rem);
+    color: #00ff41;
+    text-shadow: 0 0 20px rgba(0,255,65,0.5);
+    letter-spacing: -0.02em;
+}
+
+/* Article list accents */
+.article-item--work .article-item-meta time { color: #00ff41; }
+.article-item--work:hover { background: rgba(0,255,65,0.04); }
+.article-item--work:hover .article-item-arrow { color: #00ff41; }
+
+/* Single article */
+.article--work .article-title { color: #00ff41; text-shadow: 0 0 30px rgba(0,255,65,0.2); }
+.article--work .article-date  { color: #4d7a52; }
+
+/* Breadcrumb */
+.breadcrumb a:hover { color: #00ff41; }
+
+/* Cards */
+.card--work { border-color: #1a2e1a; }
+.card--work:hover { border-color: #00ff41; box-shadow: 0 0 20px rgba(0,255,65,0.1); }
+
+/* Footer */
+.site-footer { border-top-color: #1a2e1a; }
+
+/* Quill content accent */
+.article--work .ql-editor a { color: #00ff41; }
+.article--work .ql-editor blockquote { border-left-color: #00ff41; }
+.article--work .ql-editor h1,
+.article--work .ql-editor h2,
+.article--work .ql-editor h3 { color: #00ff41; }
+
+/* Terminal-style code blocks */
+.article--work .ql-editor pre {
+    border-color: #00ff41;
+    color: #00ff41;
+    font-family: var(--mono);
+    box-shadow: 0 0 12px rgba(0,255,65,0.08);
+}

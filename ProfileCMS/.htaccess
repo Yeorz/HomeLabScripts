@@ -1,0 +1,12 @@
+RewriteEngine On
+
+# Block direct access to sensitive files
+RewriteRule ^config\.php$ - [F,L]
+RewriteRule ^setup\.sql$ - [F,L]
+RewriteRule ^includes/ - [F,L]
+
+# Route everything through front controller (except real files/dirs and admin/)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/admin/
+RewriteRule ^ index.php [L]

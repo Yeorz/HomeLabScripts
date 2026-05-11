@@ -1,0 +1,55 @@
+/* ── Personal section — warm red theme ───────────────────────────────────── */
+:root {
+    --accent:     #e74c3c;
+    --accent-dim: rgba(231, 76, 60, 0.1);
+    --bg:         #0d0808;
+    --bg-surface: #1a0d0d;
+    --bg-elevated:#221212;
+    --border:     #2e1a1a;
+    --text:       #f0dada;
+    --text-muted: #7a5252;
+}
+
+/* Subtle warm grain */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    opacity: 0.4;
+}
+
+/* Nav accent */
+.site-nav { border-bottom-color: #2e1a1a; }
+.nav-link.active, .nav-link:hover { color: #e74c3c; background: rgba(231,76,60,0.06); }
+
+/* Page header */
+.page-header--personal h1 { color: #e74c3c; }
+
+/* Article list */
+.article-item--personal .article-item-meta time { color: #e74c3c; }
+.article-item--personal:hover { background: rgba(231,76,60,0.04); }
+.article-item--personal:hover .article-item-arrow { color: #e74c3c; }
+
+/* Single article */
+.article--personal .article-title { color: #f0dada; }
+.article--personal .article-date  { color: #7a5252; }
+
+/* Cards */
+.card--personal { border-color: #2e1a1a; }
+.card--personal:hover { border-color: #e74c3c; box-shadow: 0 0 20px rgba(231,76,60,0.08); }
+
+/* Section headings */
+.section-heading--personal { color: #e74c3c; }
+
+/* Footer */
+.site-footer { border-top-color: #2e1a1a; }
+
+/* Quill content */
+.article--personal .ql-editor a { color: #e74c3c; }
+.article--personal .ql-editor blockquote { border-left-color: #e74c3c; }
+.article--personal .ql-editor h1,
+.article--personal .ql-editor h2,
+.article--personal .ql-editor h3 { color: #f4a09a; }
